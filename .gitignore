@@ -1,4 +1,4 @@
 .venv/*
 .idea/*
-/data/
-/src/Secrets/kaggle.json
+data/
+/src/Secrets/
