@@ -12,7 +12,7 @@ class ImageManipulator:
         self.targetDirectory = targetDirectory
         self.imageFileExtension = imageFileExtension
 
-        #dictionary of file path, image data
+        #dictionary of file path, image data to allow multiple operations before saving
         self.images = {}
         filePaths = glob.glob(self.sourceDirectory + '/*/*' + self.imageFileExtension)
         for filePath in filePaths:
@@ -31,7 +31,7 @@ class ImageManipulator:
         if not os.path.exists(self.targetDirectory):
             os.makedirs(self.targetDirectory)
 
-        for img in self.images:
-            cv2.imwrite(self.targetDirectory + '/' + os.path.basename(img[0]), img[1])
+        for filePath, img in self.images.items():
+            cv2.imwrite(self.targetDirectory + '/' + os.path.basename(filePath), img)
 
 
