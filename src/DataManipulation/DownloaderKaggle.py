@@ -26,11 +26,11 @@ class DownloaderKaggle:
             data = json.load(file)
         kagglehub.auth.set_kaggle_credentials(data['username'], data['key'])
 
-        tempPath = kagglehub.dataset_download("larjeck/uieb-dataset-reference")
+        tempPath = kagglehub.dataset_download(self._datasetName)
         destinationPath = self._destinationDirectory + self._datasetName
         if os.path.exists(destinationPath):
             shutil.rmtree(destinationPath)
         os.makedirs(destinationPath)
         dest = shutil.copytree(tempPath, destinationPath, dirs_exist_ok = True)
-
+        print("Downloaded " + self._datasetName)
         return dest

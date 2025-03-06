@@ -16,7 +16,7 @@ class DataManager:
         remasteredFilePaths = glob.glob(self.remasteredDataDirectory + '/*/*' + self.fileExtension)
         remasteredFilePaths.sort()
 
-        if(len(rawFilePaths) != len(remasteredFilePaths)):
+        if len(rawFilePaths) != len(remasteredFilePaths):
             raise Exception("Different number of raw images and remastered images")
 
         for i in range (len(rawFilePaths)):
@@ -69,5 +69,7 @@ class DataManager:
         imageManipulator = im.ImageManipulator(directory, outputDirectory)
         imageManipulator.resizeImages(256, 256)
         imageManipulator.saveToDisk()
+
+        print("Resized images in " + directory)
 
 
