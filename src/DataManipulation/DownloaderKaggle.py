@@ -8,7 +8,6 @@ import os.path
 import kagglehub
 import shutil
 
-
 class DownloaderKaggle:
     def __init__(self,
                  KaggleName,

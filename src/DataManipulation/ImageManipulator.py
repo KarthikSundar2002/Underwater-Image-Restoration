@@ -18,13 +18,11 @@ class ImageManipulator:
         for filePath in filePaths:
             self.images.update({filePath: cv2.imread(filePath)})
 
-    #warning, uses fixed heigh and width, does not maintain aspect ratio, does not add padding
     #resize the images from the source directory and save in the target directory, defaulting to 256 x 256
-    # todo: provide options for other resizing methods
     def resizeImages(self, height = 256, width = 256):
         for filePath, img in self.images.items():
             img_array = np.array(img)
-            self.images.update({filePath: cv2.resize(img_array, (height,width))})
+            self.images.update({filePath: cv2.resize(img_array, (height,width), interpolation=cv2.INTER_CUBIC)})
         return
 
     def saveToDisk(self):
