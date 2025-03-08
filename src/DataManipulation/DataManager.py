@@ -49,7 +49,46 @@ class DataManager:
         ...
 
     def dataAugment(self):
-        ...
+        """
+        Apply data augmentation to training images.
+        Creates augmented versions of both raw and remastered images.
+        """
+        import importlib
+        import pathlib as pl
+        import os
+
+        # Create augmentation directories
+        raw_augmented_dir = os.path.join(os.path.dirname(self.rawDataDirectory), "augmented_raw")
+        remastered_augmented_dir = os.path.join(os.path.dirname(self.remasteredDataDirectory), "augmented_remastered")
+
+        # Import the DataAugmentor class
+        # Assuming it's saved in the same directory as ImageManipulator
+        from src.DataManipulation.DataAugmentor import DataAugmentor
+
+        # Create augmentor for raw images
+        raw_augmentor = DataAugmentor(
+            sourceDirectory=self.rawDataDirectory,
+            targetDirectory=raw_augmented_dir,
+            imageFileExtension=self.fileExtension
+        )
+
+        # Create augmentor for remastered images
+        remastered_augmentor = DataAugmentor(
+            sourceDirectory=self.remasteredDataDirectory,
+            targetDirectory=remastered_augmented_dir,
+            imageFileExtension=self.fileExtension
+        )
+
+        # Apply augmentations (create 4 variants of each image)
+        print("Generating augmented versions of raw images...")
+        raw_augmentor.apply_augmentations(num_augmentations=4)
+        raw_augmentor.save_augmented_images()
+
+        print("Generating augmented versions of remastered images...")
+        remastered_augmentor.apply_augmentations(num_augmentations=4)
+        remastered_augmentor.save_augmented_images()
+
+        print("Data augmentation completed.")
 
     def train(self):
         ...
