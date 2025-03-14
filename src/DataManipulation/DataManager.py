@@ -2,6 +2,65 @@ import glob
 import pathlib
 import pathlib as pl
 
+import os
+import torch
+from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as transforms
+from PIL import Image
+
+# PyTorch Dataset for UIEB
+class UIEBDataset(Dataset):
+    def __init__(self, raw_dir, ref_dir, transform=None):
+        """
+        Args:
+            raw_dir (str): Path to raw images.
+            ref_dir (str): Path to reference images.
+            transform (callable, optional): Image transformations.
+        """
+        self.raw_images = sorted(os.listdir(raw_dir))
+        self.ref_images = sorted(os.listdir(ref_dir))
+        self.raw_dir = raw_dir
+        self.ref_dir = ref_dir
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.raw_images)
+
+    def __getitem__(self, idx):
+        raw_path = os.path.join(self.raw_dir, self.raw_images[idx])
+        ref_path = os.path.join(self.ref_dir, self.ref_images[idx])
+
+        raw_img = Image.open(raw_path).convert("RGB")
+        ref_img = Image.open(ref_path).convert("RGB")
+
+        if self.transform:
+            raw_img = self.transform(raw_img)
+            ref_img = self.transform(ref_img)
+
+        return raw_img, ref_img  # Input and Ground Truth
+
+# Function to get DataLoaders
+def get_dataloaders(raw_dir, ref_dir, batch_size=16, num_workers=4):
+
+    transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.ToTensor(),
+    ])
+
+    dataset = UIEBDataset(raw_dir, ref_dir, transform=transform)
+    train_size = int(0.8 * len(dataset))  # 80% train, 20% test
+    test_size = len(dataset) - train_size
+
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    return train_loader, test_loader
+
 
 class DataManager:
     def __init__(self, fileExtension=".png"):
