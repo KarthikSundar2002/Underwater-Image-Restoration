@@ -112,19 +112,26 @@ class DataManager:
         Apply data augmentation to training images.
         Creates augmented versions of both raw and remastered images.
         """
+        # Make sure to import modules at the top of the function
         import importlib
         import pathlib as pl
         import os
+        import sys
 
-        # Create augmentation directories
+        # Create augmentation directories FIRST
         raw_augmented_dir = os.path.join(os.path.dirname(self.rawDataDirectory), "augmented_raw")
         remastered_augmented_dir = os.path.join(os.path.dirname(self.remasteredDataDirectory), "augmented_remastered")
 
+        # Then handle module imports
+        # Try to reload if module exists
+        if 'src.DataManipulation.DataAugmentor' in sys.modules:
+            importlib.reload(sys.modules['src.DataManipulation.DataAugmentor'])
+
         # Import the DataAugmentor class
-        # Assuming it's saved in the same directory as ImageManipulator
         from src.DataManipulation.DataAugmentor import DataAugmentor
 
-        # Create augmentor for raw images
+        # Now create augmentors using the directories defined above
+        print("Running Data Augmentor for Raw Images")
         raw_augmentor = DataAugmentor(
             sourceDirectory=self.rawDataDirectory,
             targetDirectory=raw_augmented_dir,
@@ -132,6 +139,7 @@ class DataManager:
         )
 
         # Create augmentor for remastered images
+        print("Running Data Augmentor for remastered Images")
         remastered_augmentor = DataAugmentor(
             sourceDirectory=self.remasteredDataDirectory,
             targetDirectory=remastered_augmented_dir,

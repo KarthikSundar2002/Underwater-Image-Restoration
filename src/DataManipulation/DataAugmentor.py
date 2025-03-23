@@ -10,6 +10,8 @@ from PIL import Image
 
 
 class DataAugmentor:
+
+
     """
     Class for performing data augmentation on underwater images.
     Integrates with the existing DataManager and ImageManipulator classes.
@@ -39,6 +41,7 @@ class DataAugmentor:
             contrast_prob: Probability of adjusting contrast
             contrast_range: Range for contrast adjustment (min, max)
         """
+        print("Starting Data Augmentor")
         self.sourceDirectory = sourceDirectory
         self.targetDirectory = targetDirectory
         self.imageFileExtension = imageFileExtension
@@ -55,8 +58,26 @@ class DataAugmentor:
         # Dictionary to store augmented versions of each image (path: list of augmented images)
         self.augmented_images = {}
 
+
+
+
+
+
         # Load all images from the source directory
+        print(f"Looking for images in: {self.sourceDirectory}")
         filePaths = glob.glob(self.sourceDirectory + '/*/*' + self.imageFileExtension)
+        print(f"Found {len(filePaths)} images")
+
+        # If you found no images, try a different pattern
+        if len(filePaths) == 0:
+            print("Trying different pattern...")
+            filePaths = glob.glob(self.sourceDirectory + '/*')
+            print(f"Found {len(filePaths)} files with any extension")
+            # Check what extensions are present
+            extensions = set(os.path.splitext(f)[1] for f in filePaths)
+            print(f"Extensions found: {extensions}")
+
+
         for filePath in filePaths:
             # Load image using OpenCV (which uses BGR color format)
             cv_img = cv2.imread(filePath)
