@@ -66,6 +66,7 @@ def get_dataloaders(raw_dir, ref_dir, batch_size=16, num_workers=4):
 
 class DataManager:
     def __init__(self, fileExtension=".png"):
+        self.raw_augmented_dir = None
         self.rawDataDirectory = ""
         self.remasteredDataDirectory = ""
         self.fileExtension = fileExtension
@@ -122,7 +123,7 @@ class DataManager:
         import sys
 
         # Create augmentation directories FIRST
-        raw_augmented_dir = os.path.join(os.path.dirname(self.rawDataDirectory), "augmented_raw")
+        self.raw_augmented_dir = os.path.join(os.path.dirname(self.rawDataDirectory), "augmented_raw")
         remastered_augmented_dir = os.path.join(os.path.dirname(self.remasteredDataDirectory), "augmented_remastered")
 
         # Then handle module imports
@@ -137,7 +138,7 @@ class DataManager:
         print("Running Data Augmentor for Raw Images")
         raw_augmentor = DataAugmentor(
             sourceDirectory=self.rawDataDirectory,
-            targetDirectory=raw_augmented_dir,
+            targetDirectory=self.raw_augmented_dir,
             imageFileExtension=self.fileExtension
         )
 
@@ -182,12 +183,13 @@ class DataManager:
         # Get dataloaders
         print("Preparing data loaders...")
         # Use the raw and augmented directories
-        raw_dir = self.rawDataDirectory
+        raw_dir = self.raw_augmented_dir
         ref_dir = self.remasteredDataDirectory
 
         # For additional training data, you can use augmented directories too
-        raw_aug_dir = os.path.join(os.path.dirname(self.rawDataDirectory), "augmented_raw")
-        ref_aug_dir = os.path.join(os.path.dirname(self.remasteredDataDirectory), "augmented_remastered")
+
+        raw_aug_dir = os.path.join(os.path.dirname(self.getManipulatedDir(self.rawDataDirectory)), "augmented_raw")
+        ref_aug_dir = os.path.join(os.path.dirname(self.getManipulatedDir(self.remasteredDataDirectory)), "augmented_remastered")
 
         # Get train and test loaders using the original data
         train_loader, test_loader = get_dataloaders(raw_dir, ref_dir, batch_size=8)
@@ -229,7 +231,7 @@ class DataManager:
                 epoch_loss += loss.item()
 
                 # Print progress every 10 batches
-                if (i + 1) % 10 == 0:
+                if (i + 1) % 1 == 0:
                     print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}")
 
             avg_epoch_loss = epoch_loss / len(train_loader)
@@ -363,13 +365,17 @@ class DataManager:
         import pathlib as pl
         importlib.reload(im)
 
-        path = pl.Path(directory)
-        outputDirectory = directory.replace(path.parts[3], "manipulated")
+        outputDirectory = self.getManipulatedDir(directory)
 
         imageManipulator = im.ImageManipulator(directory, outputDirectory)
         imageManipulator.resizeImages(256, 256)
         imageManipulator.saveToDisk()
 
         print("Resized images in " + directory)
+
+    def getManipulatedDir(self, directory):
+        path = pl.Path(directory)
+        outputDirectory = directory.replace(path.parts[3], "manipulated")
+        return outputDirectory
 
 
