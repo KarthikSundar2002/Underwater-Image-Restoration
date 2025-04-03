@@ -11,26 +11,26 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from args import argument_parser, dataset_kwargs, optimizer_kwargs, lr_scheduler_kwargs
-from src import models
-from src.data_manager import ImageDataManager
-from src.eval_metrics import evaluate
-from src.losses import CrossEntropyLoss, TripletLoss, DeepSupervision
-from src.lr_schedulers import init_lr_scheduler
-from src.optimizers import init_optimizer
-from src.utils.avgmeter import AverageMeter
-from src.utils.generaltools import set_random_seed
-from src.utils.iotools import check_isfile
-from src.utils.loggers import Logger, RankLogger
-from src.utils.torchtools import (
-    count_num_param,
-    accuracy,
-    load_pretrained_weights,
-    save_checkpoint,
-    resume_from_checkpoint,
-)
-from src.utils.visualtools import visualize_ranked_results
+# from src import models
+# from src.data_manager import ImageDataManager
+# from src.eval_metrics import evaluate
+# from src.losses import CrossEntropyLoss, TripletLoss, DeepSupervision
+# from src.lr_schedulers import init_lr_scheduler
+# from src.optimizers import init_optimizer
+# from src.utils.avgmeter import AverageMeter
+# from src.utils.generaltools import set_random_seed
+# from src.utils.iotools import check_isfile
+from src.utils.loggers import Logger#, RankLogger
+# from src.utils.torchtools import (
+#     count_num_param,
+#     accuracy,
+#     load_pretrained_weights,
+#     save_checkpoint,
+#     resume_from_checkpoint,
+# )
+# from src.utils.visualtools import visualize_ranked_results
 from src.utils.wandb_logger import WandBLogger
-
+import src.DataManipulation.DataManager as dataManager
 import uuid
 
 # global variables
@@ -41,7 +41,7 @@ args = parser.parse_args()
 def main():
     global args, wandb_logger
 
-    set_random_seed(args.seed)
+    #set_random_seed(args.seed)
     if not args.use_avai_gpus:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_devices
 
@@ -53,12 +53,7 @@ def main():
     log_name = "log_test.txt" if args.evaluate else "log_train.txt"
     sys.stdout = Logger(osp.join(args.save_dir, log_name))
     print("==========")
-    student_id = 'sp02687' # os.environ.get('STUDENT_ID', '<your id>')
-    student_name = '"Sean Power"' #os.environ.get('STUDENT_NAME', '<your name>')
-    print("Student ID:{}".format(student_id))
-    print("Student name:{}".format(student_name))
-    print("UUID:{}".format(uuid.uuid4()))
-    print("Experiment time:{}".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+    print("Start time:{}".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
     print("==========")
     print(f"==========\nArgs:{args}\n==========")
 
@@ -71,118 +66,129 @@ def main():
         warnings.warn("Currently using CPU, however, GPU is highly recommended")
 
     print("Initializing image data manager")
-    dm = ImageDataManager(use_gpu, **dataset_kwargs(args))
-    trainloader, testloader_dict = dm.return_dataloaders()
+    dataset_path = "../data/kaggle/larjeck"
 
-    print(f"Initializing model: {args.arch}")
-    model = models.init_model(
-        name=args.arch,
-        num_classes=dm.num_train_pids,
-        loss={"xent", "htri"},
-        pretrained=not args.no_pretrained,
-        use_gpu=use_gpu,
+    dm = dataManager.DataManager()
+    dm.download()
+    dm.setDownloadedLocations(
+        rawDataDirectory=f"{dataset_path}/uieb-dataset-raw/raw-890",
+        remasteredDataDirectory=f"{dataset_path}/uieb-dataset-reference/reference-890"
     )
-    print("Model size: {:.3f} M".format(count_num_param(model)))
+    dm.preProcess()
+    dm.dataAugment()
+    dm.train()
 
-    if args.load_weights and check_isfile(args.load_weights):
-        load_pretrained_weights(model, args.load_weights)
 
-    model = nn.DataParallel(model).cuda() if use_gpu else model
-
-    wandb_logger.watch_model(model)
-
-    criterion_xent = CrossEntropyLoss(
-        num_classes=dm.num_train_pids, use_gpu=use_gpu, label_smooth=args.label_smooth
-    )
-    criterion_htri = TripletLoss(margin=args.margin)
-    optimizer = init_optimizer(model, **optimizer_kwargs(args))
-    scheduler = init_lr_scheduler(optimizer, **lr_scheduler_kwargs(args))
-
-    wandb_logger.watch_model(model)
-
-    if args.evaluate:
-        print("Evaluate only")
-
-        for name in args.target_names:
-            print(f"Evaluating {name} ...")
-            queryloader = testloader_dict[name]["query"]
-            galleryloader = testloader_dict[name]["gallery"]
-            distmat = test(
-                model, queryloader, galleryloader, use_gpu, return_distmat=True
-            )
-
-            if args.visualize_ranks:
-                visualize_ranked_results(
-                    distmat,
-                    dm.return_testdataset_by_name(name),
-                    save_dir=osp.join(args.save_dir, "ranked_results", name),
-                    topk=20,
-                )
-        return
-
-    time_start = time.time()
-    ranklogger = RankLogger(args.source_names, args.target_names)
-    print("=> Start training")
-    """
-    if args.fixbase_epoch > 0:
-        print('Train {} for {} epochs while keeping other layers frozen'.format(args.open_layers, args.fixbase_epoch))
-        initial_optim_state = optimizer.state_dict()
-
-        for epoch in range(args.fixbase_epoch):
-            train(epoch, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, fixbase=True)
-
-        print('Done. All layers are open to train for {} epochs'.format(args.max_epoch))
-        optimizer.load_state_dict(initial_optim_state)
-    """
-    for epoch in range(args.start_epoch, args.max_epoch):
-        train(
-            epoch,
-            model,
-            criterion_xent,
-            criterion_htri,
-            optimizer,
-            trainloader,
-            use_gpu,
-        )
-
-        scheduler.step()
-
-        if (
-            (epoch + 1) > args.start_eval
-            and args.eval_freq > 0
-            and (epoch + 1) % args.eval_freq == 0
-            or (epoch + 1) == args.max_epoch
-        ):
-            print("=> Test")
-
-            for name in args.target_names:
-                print(f"Evaluating {name} ...")
-                queryloader = testloader_dict[name]["query"]
-                galleryloader = testloader_dict[name]["gallery"]
-                rank1 = test(model, queryloader, galleryloader, use_gpu)
-                ranklogger.write(name, epoch + 1, rank1)
-
-            save_checkpoint(
-                {
-                    "state_dict": model.state_dict(),
-                    "rank1": rank1,
-                    "epoch": epoch + 1,
-                    "arch": args.arch,
-                    "optimizer": optimizer.state_dict(),
-                },
-                args.save_dir,
-            )
-            # Log model checkpoint
-            #weights_only_path = osp.join(args.save_dir, f"model-{str(epoch+1)}.pth")
-            #checkpoint_path = osp.join(args.save_dir, f"model-{str(epoch+1)}.pth.tar")
-            #wandb_logger.log_model_artifact(weights_only_path)
-            #wandb_logger.log_model_artifact(checkpoint_path)
-
-    elapsed = round(time.time() - time_start)
-    elapsed = str(datetime.timedelta(seconds=elapsed))
-    print(f"Elapsed {elapsed}")
-    ranklogger.show_summary()
-    wandb_logger.finish()
+    #
+    # print(f"Initializing model: {args.arch}")
+    # # model = models.init_model(
+    # #     name=args.arch,
+    # #     num_classes=dm.num_train_pids,
+    # #     loss={"xent", "htri"},
+    # #     pretrained=not args.no_pretrained,
+    # #     use_gpu=use_gpu,
+    # # )
+    # print("Model size: {:.3f} M".format(count_num_param(model)))
+    #
+    # if args.load_weights and check_isfile(args.load_weights):
+    #     load_pretrained_weights(model, args.load_weights)
+    #
+    # model = nn.DataParallel(model).cuda() if use_gpu else model
+    #
+    # wandb_logger.watch_model(model)
+    #
+    # criterion_xent = CrossEntropyLoss(
+    #     num_classes=dm.num_train_pids, use_gpu=use_gpu, label_smooth=args.label_smooth
+    # )
+    # criterion_htri = TripletLoss(margin=args.margin)
+    # optimizer = init_optimizer(model, **optimizer_kwargs(args))
+    # scheduler = init_lr_scheduler(optimizer, **lr_scheduler_kwargs(args))
+    #
+    # wandb_logger.watch_model(model)
+    #
+    # if args.evaluate:
+    #     print("Evaluate only")
+    #
+    #     for name in args.target_names:
+    #         print(f"Evaluating {name} ...")
+    #         queryloader = testloader_dict[name]["query"]
+    #         galleryloader = testloader_dict[name]["gallery"]
+    #         distmat = test(
+    #             model, queryloader, galleryloader, use_gpu, return_distmat=True
+    #         )
+    #
+    #         if args.visualize_ranks:
+    #             visualize_ranked_results(
+    #                 distmat,
+    #                 dm.return_testdataset_by_name(name),
+    #                 save_dir=osp.join(args.save_dir, "ranked_results", name),
+    #                 topk=20,
+    #             )
+    #     return
+    #
+    # time_start = time.time()
+    # ranklogger = RankLogger(args.source_names, args.target_names)
+    # print("=> Start training")
+    # """
+    # if args.fixbase_epoch > 0:
+    #     print('Train {} for {} epochs while keeping other layers frozen'.format(args.open_layers, args.fixbase_epoch))
+    #     initial_optim_state = optimizer.state_dict()
+    #
+    #     for epoch in range(args.fixbase_epoch):
+    #         train(epoch, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, fixbase=True)
+    #
+    #     print('Done. All layers are open to train for {} epochs'.format(args.max_epoch))
+    #     optimizer.load_state_dict(initial_optim_state)
+    # """
+    # for epoch in range(args.start_epoch, args.max_epoch):
+    #     train(
+    #         epoch,
+    #         model,
+    #         criterion_xent,
+    #         criterion_htri,
+    #         optimizer,
+    #         trainloader,
+    #         use_gpu,
+    #     )
+    #
+    #     scheduler.step()
+    #
+    #     if (
+    #         (epoch + 1) > args.start_eval
+    #         and args.eval_freq > 0
+    #         and (epoch + 1) % args.eval_freq == 0
+    #         or (epoch + 1) == args.max_epoch
+    #     ):
+    #         print("=> Test")
+    #
+    #         for name in args.target_names:
+    #             print(f"Evaluating {name} ...")
+    #             queryloader = testloader_dict[name]["query"]
+    #             galleryloader = testloader_dict[name]["gallery"]
+    #             rank1 = test(model, queryloader, galleryloader, use_gpu)
+    #             ranklogger.write(name, epoch + 1, rank1)
+    #
+    #         save_checkpoint(
+    #             {
+    #                 "state_dict": model.state_dict(),
+    #                 "rank1": rank1,
+    #                 "epoch": epoch + 1,
+    #                 "arch": args.arch,
+    #                 "optimizer": optimizer.state_dict(),
+    #             },
+    #             args.save_dir,
+    #         )
+    #         # Log model checkpoint
+    #         #weights_only_path = osp.join(args.save_dir, f"model-{str(epoch+1)}.pth")
+    #         #checkpoint_path = osp.join(args.save_dir, f"model-{str(epoch+1)}.pth.tar")
+    #         #wandb_logger.log_model_artifact(weights_only_path)
+    #         #wandb_logger.log_model_artifact(checkpoint_path)
+    #
+    # elapsed = round(time.time() - time_start)
+    # elapsed = str(datetime.timedelta(seconds=elapsed))
+    # print(f"Elapsed {elapsed}")
+    # ranklogger.show_summary()
+    # wandb_logger.finish()
 
 
 def train(

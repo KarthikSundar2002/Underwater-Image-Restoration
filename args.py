@@ -18,7 +18,6 @@ def argument_parser():
         "-s",
         "--source-names",
         type=str,
-        required=True,
         nargs="+",
         help="source dataset for training(delimited by space)",
     )
@@ -26,7 +25,6 @@ def argument_parser():
         "-t",
         "--target-names",
         type=str,
-        required=True,
         nargs="+",
         help="target dataset for testing(delimited by space)",
     )
