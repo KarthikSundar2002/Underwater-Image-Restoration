@@ -51,6 +51,7 @@ def get_dataloaders(raw_dir, ref_dir, batch_size=16, num_workers=4):
         transforms.ToTensor(),
     ])
 
+    #todo: NOTE: Do we want to be running this again as well as augmenting images?
     dataset = UIEBDataset(raw_dir, ref_dir, transform=transform)
     train_size = int(0.8 * len(dataset))  # 80% train, 20% test
     test_size = len(dataset) - train_size
@@ -96,6 +97,7 @@ class DataManager:
         downloaderRaw = dk.DownloaderKaggle("larjeck/uieb-dataset-raw")
         self.rawDataDirectory = downloaderRaw.downloadFiles()
 
+    #todo: get rid of this method - add the fields to class init
     def setDownloadedLocations(self, rawDataDirectory, remasteredDataDirectory):
         self.rawDataDirectory = rawDataDirectory
         self.remasteredDataDirectory = remasteredDataDirectory
@@ -107,7 +109,7 @@ class DataManager:
 
     def split(self):
         ...
-
+    #todo: this would be much faster to run on GPU
     def dataAugment(self):
         """
         Apply data augmentation to training images.
@@ -140,21 +142,22 @@ class DataManager:
         )
 
         # Create augmentor for remastered images
-        print("Running Data Augmentor for remastered Images")
-        remastered_augmentor = DataAugmentor(
-            sourceDirectory=self.remasteredDataDirectory,
-            targetDirectory=remastered_augmented_dir,
-            imageFileExtension=self.fileExtension
-        )
+        #Sean : Removed this - dont need to augment the reference images
+        # print("Running Data Augmentor for remastered Images")
+        # remastered_augmentor = DataAugmentor(
+        #     sourceDirectory=self.remasteredDataDirectory,
+        #     targetDirectory=remastered_augmented_dir,
+        #     imageFileExtension=self.fileExtension
+        # )
 
         # Apply augmentations (create 4 variants of each image)
         print("Generating augmented versions of raw images...")
         raw_augmentor.apply_augmentations(num_augmentations=4)
         raw_augmentor.save_augmented_images()
 
-        print("Generating augmented versions of remastered images...")
-        remastered_augmentor.apply_augmentations(num_augmentations=4)
-        remastered_augmentor.save_augmented_images()
+        # print("Generating augmented versions of remastered images...")
+        # remastered_augmentor.apply_augmentations(num_augmentations=4)
+        # remastered_augmentor.save_augmented_images()
 
         print("Data augmentation completed.")
 
