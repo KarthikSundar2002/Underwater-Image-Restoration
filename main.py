@@ -5,6 +5,8 @@ import os.path as osp
 import sys
 import time
 import warnings
+import src.ModelTrainer as mt
+
 
 import numpy as np
 import torch
@@ -67,16 +69,19 @@ def main():
 
     print("Initializing image data manager")
     dataset_path = "../data/kaggle/larjeck"
+    rawImageDirectory = f"{dataset_path}/uieb-dataset-raw/raw-890"
+    referenceImageDirectory = f"{dataset_path}/uieb-dataset-reference/reference-890"
 
     dm = dataManager.DataManager()
     dm.download()
-    dm.setDownloadedLocations(
-        rawDataDirectory=f"{dataset_path}/uieb-dataset-raw/raw-890",
-        remasteredDataDirectory=f"{dataset_path}/uieb-dataset-reference/reference-890"
-    )
+    # dm.setDownloadedLocations(
+    #     rawDataDirectory=rawImageDirectory,
+    #     remasteredDataDirectory=referenceImageDirectory
+    # )
     dm.preProcess()
-    dm.dataAugment()
-    dm.train()
+    #dm.dataAugment()
+    trainer = mt.ModelTrainer(dm.currentRawDataDirectory, referenceImageDirectory)
+    trainer.train()
 
 
     #

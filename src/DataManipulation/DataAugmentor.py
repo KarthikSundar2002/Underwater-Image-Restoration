@@ -58,11 +58,6 @@ class DataAugmentor:
         # Dictionary to store augmented versions of each image (path: list of augmented images)
         self.augmented_images = {}
 
-
-
-
-
-
         # Load all images from the source directory
         print(f"Looking for images in: {self.sourceDirectory}")
         filePaths = glob.glob(self.sourceDirectory + '/*/*' + self.imageFileExtension)
