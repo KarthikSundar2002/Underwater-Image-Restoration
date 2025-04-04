@@ -5,6 +5,9 @@ import os.path as osp
 import sys
 import time
 import warnings
+
+import cv2
+
 import src.ModelTrainer as mt
 
 
@@ -13,6 +16,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from args import argument_parser, dataset_kwargs, optimizer_kwargs, lr_scheduler_kwargs
+from src.Models.SpectralTransformer import mymodel
 # from src import models
 # from src.data_manager import ImageDataManager
 # from src.eval_metrics import evaluate
@@ -42,6 +46,7 @@ args = parser.parse_args()
 
 def main():
     global args, wandb_logger
+    print(args.evaluate)
 
     #set_random_seed(args.seed)
     if not args.use_avai_gpus:
@@ -67,25 +72,53 @@ def main():
     else:
         warnings.warn("Currently using CPU, however, GPU is highly recommended")
 
-    print("Initializing image data manager")
-    dataset_path = "../data/kaggle/larjeck"
-    rawImageDirectory = f"{dataset_path}/uieb-dataset-raw/raw-890"
-    referenceImageDirectory = f"{dataset_path}/uieb-dataset-reference/reference-890"
+    if not args.evaluate:
+        print("Initializing image data manager")
+        dataset_path = "../data/kaggle/larjeck"
+        rawImageDirectory = f"{dataset_path}/uieb-dataset-raw/raw-890"
+        referenceImageDirectory = f"{dataset_path}/uieb-dataset-reference/reference-890"
 
-    dm = dataManager.DataManager()
-    dm.download()
-    # dm.setDownloadedLocations(
-    #     rawDataDirectory=rawImageDirectory,
-    #     remasteredDataDirectory=referenceImageDirectory
-    # )
-    dm.preProcess()
-    #dm.dataAugment()
-    print("Starting training")
-    print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
-    print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
+        dm = dataManager.DataManager()
+        dm.download()
+        # dm.setDownloadedLocations(
+        #     rawDataDirectory=rawImageDirectory,
+        #     remasteredDataDirectory=referenceImageDirectory
+        # )
+        dm.preProcess()
+        #dm.dataAugment()
+        print("Starting training")
+        print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
+        print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
 
-    trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
-    trainer.train()
+        trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
+        trainer.train()
+    else:
+        print("Good")
+
+        model = mymodel()
+        PATH = "best_spectral_transformer.pth"
+
+        model.load_state_dict(torch.load(PATH, weights_only=True)["model_state_dict"])
+
+
+        #
+        # model = torch.load(PATH, weights_only=False)
+        #
+        # #model2 = torch.load(PATH)
+        # print(model["model_state_dict"])
+        # #mymodel.load_state_dict(state_dict=model2["model_state_dict"])
+
+        fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+        #for filePath, img in self.images.items():
+        img = cv2.imread(fileToTest)
+
+        img_array = np.array(img)
+
+        result = model(img_array)
+
+        from matplotlib import pyplot as plt
+        plt.imshow(result, interpolation='nearest')
+        plt.show()
 
 
     #
