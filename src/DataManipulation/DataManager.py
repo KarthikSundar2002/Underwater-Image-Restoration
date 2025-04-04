@@ -7,7 +7,7 @@ import os
 class DataManager:
     def __init__(self, fileExtension=".png"):
         self.currentRawDataDirectory = ""
-        self.referenceDataDirectory = ""
+        self.currentReferenceDataDirectory = ""
         self.fileExtension = fileExtension
         self.fileList = []
 
@@ -32,7 +32,7 @@ class DataManager:
         importlib.reload(dk)
 
         downloaderReference = dk.DownloaderKaggle("larjeck/uieb-dataset-reference")
-        self.referenceDataDirectory = downloaderReference.downloadFiles()
+        self.currentReferenceDataDirectory = downloaderReference.downloadFiles()
 
         downloaderRaw = dk.DownloaderKaggle("larjeck/uieb-dataset-raw")
         self.currentRawDataDirectory = downloaderRaw.downloadFiles()
@@ -40,12 +40,12 @@ class DataManager:
     #todo: get rid of this method - add the fields to class init
     def setDownloadedLocations(self, rawDataDirectory, remasteredDataDirectory):
         self.currentRawDataDirectory = rawDataDirectory
-        self.referenceDataDirectory = remasteredDataDirectory
+        self.currentReferenceDataDirectory = remasteredDataDirectory
 
     def preProcess(self):
         #todo: preprocess steps
         self.currentRawDataDirectory = self.__resizeFiles(self.currentRawDataDirectory)
-        self.referenceDataDirectory = self.__resizeFiles(self.referenceDataDirectory)
+        self.currentReferenceDataDirectory = self.__resizeFiles(self.currentReferenceDataDirectory)
 
     def split(self):
         ...

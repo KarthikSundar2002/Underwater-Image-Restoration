@@ -82,9 +82,9 @@ def main():
     #dm.dataAugment()
     print("Starting training")
     print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
-    print(f"Reference Image Directory: {referenceImageDirectory}")
+    print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
 
-    trainer = mt.ModelTrainer(dm.currentRawDataDirectory, referenceImageDirectory)
+    trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
     trainer.train()
 
 
