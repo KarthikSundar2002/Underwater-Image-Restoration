@@ -80,6 +80,10 @@ def main():
     # )
     dm.preProcess()
     #dm.dataAugment()
+    print("Starting training")
+    print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
+    print(f"Reference Image Directory: {referenceImageDirectory}")
+
     trainer = mt.ModelTrainer(dm.currentRawDataDirectory, referenceImageDirectory)
     trainer.train()
 
