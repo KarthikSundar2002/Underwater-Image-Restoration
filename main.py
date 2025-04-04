@@ -6,6 +6,8 @@ import sys
 import time
 import warnings
 import src.ModelTrainer as mt
+from src.Models.SpectralTransformer import mymodel
+import cv2
 
 
 import numpy as np
@@ -50,42 +52,59 @@ def main():
     use_gpu = torch.cuda.is_available()
     if args.use_cpu:
         use_gpu = False
-    outputdirectory = "logs/" + "/arch-" + str(args.arch) + "/optimizer-" + str(args.optim) + "/maxEpoch-" + str(args.max_epoch) + "/lr-" + str(args.lr)  + "/batchSize-" + str(args.train_batch_size) + "/perspective-" + str(args.randomPerspective) + "-rotate-" + str(args.randomRotate)
-    args.save_dir = outputdirectory
-    log_name = "log_test.txt" if args.evaluate else "log_train.txt"
-    sys.stdout = Logger(osp.join(args.save_dir, log_name))
-    print("==========")
-    print("Start time:{}".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-    print("==========")
-    print(f"==========\nArgs:{args}\n==========")
 
-    wandb_logger = WandBLogger(args)
+    if not args.evaluate:
+        outputdirectory = "logs/" + "/arch-" + str(args.arch) + "/optimizer-" + str(args.optim) + "/maxEpoch-" + str(args.max_epoch) + "/lr-" + str(args.lr)  + "/batchSize-" + str(args.train_batch_size) + "/perspective-" + str(args.randomPerspective) + "-rotate-" + str(args.randomRotate)
+        args.save_dir = outputdirectory
+        log_name = "log_test.txt" if args.evaluate else "log_train.txt"
+        sys.stdout = Logger(osp.join(args.save_dir, log_name))
+        print("==========")
+        print("Start time:{}".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+        print("==========")
+        print(f"==========\nArgs:{args}\n==========")
 
-    if use_gpu:
-        print(f"Currently using GPU {args.gpu_devices}")
-        cudnn.benchmark = True
+        wandb_logger = WandBLogger(args)
+
+        if use_gpu:
+            print(f"Currently using GPU {args.gpu_devices}")
+            cudnn.benchmark = True
+        else:
+            warnings.warn("Currently using CPU, however, GPU is highly recommended")
+
+        print("Initializing image data manager")
+        dataset_path = "../data/kaggle/larjeck"
+        rawImageDirectory = f"{dataset_path}/uieb-dataset-raw/raw-890"
+        referenceImageDirectory = f"{dataset_path}/uieb-dataset-reference/reference-890"
+
+        dm = dataManager.DataManager()
+        dm.download()
+        # dm.setDownloadedLocations(
+        #     rawDataDirectory=rawImageDirectory,
+        #     remasteredDataDirectory=referenceImageDirectory
+        # )
+        dm.preProcess()
+        #dm.dataAugment()
+        print("Starting training")
+        print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
+        print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
+
+        trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
+        trainer.train()
+
     else:
-        warnings.warn("Currently using CPU, however, GPU is highly recommended")
+        PATH = "best_spectral_transformer.pth"
+        mymodel.load_state_dict(torch.load(PATH, weights_only=True))
 
-    print("Initializing image data manager")
-    dataset_path = "../data/kaggle/larjeck"
-    rawImageDirectory = f"{dataset_path}/uieb-dataset-raw/raw-890"
-    referenceImageDirectory = f"{dataset_path}/uieb-dataset-reference/reference-890"
+        fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+        #for filePath, img in self.images.items():
+        img = cv2.imread(fileToTest)
+        img_array = np.array(img)
 
-    dm = dataManager.DataManager()
-    dm.download()
-    # dm.setDownloadedLocations(
-    #     rawDataDirectory=rawImageDirectory,
-    #     remasteredDataDirectory=referenceImageDirectory
-    # )
-    dm.preProcess()
-    #dm.dataAugment()
-    print("Starting training")
-    print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
-    print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
+        result = mymodel(img_array)
 
-    trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
-    trainer.train()
+        from matplotlib import pyplot as plt
+        plt.imshow(result, interpolation='nearest')
+        plt.show()
 
 
     #
@@ -200,167 +219,167 @@ def main():
     # wandb_logger.finish()
 
 
-def train(
-    epoch, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
-):
-    xent_losses = AverageMeter()
-    htri_losses = AverageMeter()
-    accs = AverageMeter()
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-
-    model.train()
-    for p in model.parameters():
-        p.requires_grad = True  # open all layers
-
-    end = time.time()
-    for batch_idx, (imgs, pids, _, _) in enumerate(trainloader):
-        data_time.update(time.time() - end)
-
-        if use_gpu:
-            imgs, pids = imgs.cuda(), pids.cuda()
-
-        outputs, features = model(imgs)
-        if isinstance(outputs, (tuple, list)):
-            xent_loss = DeepSupervision(criterion_xent, outputs, pids)
-        else:
-            xent_loss = criterion_xent(outputs, pids)
-
-        if isinstance(features, (tuple, list)):
-            htri_loss = DeepSupervision(criterion_htri, features, pids)
-        else:
-            htri_loss = criterion_htri(features, pids)
-
-        loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        batch_time.update(time.time() - end)
-
-        xent_losses.update(xent_loss.item(), pids.size(0))
-        htri_losses.update(htri_loss.item(), pids.size(0))
-        accs.update(accuracy(outputs, pids)[0])
-
-        if (batch_idx + 1) % args.print_freq == 0:
-            print(
-                "Epoch: [{0}][{1}/{2}]\t"
-                "Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                "Data {data_time.val:.4f} ({data_time.avg:.4f})\t"
-                "Xent {xent.val:.4f} ({xent.avg:.4f})\t"
-                "Htri {htri.val:.4f} ({htri.avg:.4f})\t"
-                "Acc {acc.val:.2f} ({acc.avg:.2f})\t".format(
-                    epoch + 1,
-                    batch_idx + 1,
-                    len(trainloader),
-                    batch_time=batch_time,
-                    data_time=data_time,
-                    xent=xent_losses,
-                    htri=htri_losses,
-                    acc=accs,
-                )
-            )
-            metrics = wandb_logger.format_train_metrics(
-                xent_losses.val,
-                htri_losses.val,
-                accs.val,
-                optimizer.param_groups[0]["lr"],
-                args.lambda_xent,
-                args.lambda_htri,
-            )
-            wandb_logger.log_train_metrics(metrics, epoch, batch_idx, len(trainloader))
-        end = time.time()
-
-
-def test(
-    model,
-    queryloader,
-    galleryloader,
-    use_gpu,
-    ranks=[1, 5, 10, 20],
-    return_distmat=False,
-):
-    batch_time = AverageMeter()
-
-    model.eval()
-
-    with torch.no_grad():
-        qf, q_pids, q_camids = [], [], []
-        for batch_idx, (imgs, pids, camids, _) in enumerate(queryloader):
-            if use_gpu:
-                imgs = imgs.cuda()
-
-            end = time.time()
-            features = model(imgs)
-            batch_time.update(time.time() - end)
-
-            features = features.data.cpu()
-            qf.append(features)
-            q_pids.extend(pids)
-            q_camids.extend(camids)
-        qf = torch.cat(qf, 0)
-        q_pids = np.asarray(q_pids)
-        q_camids = np.asarray(q_camids)
-
-        print(
-            "Extracted features for query set, obtained {}-by-{} matrix".format(
-                qf.size(0), qf.size(1)
-            )
-        )
-
-        gf, g_pids, g_camids = [], [], []
-        for batch_idx, (imgs, pids, camids, _) in enumerate(galleryloader):
-            if use_gpu:
-                imgs = imgs.cuda()
-
-            end = time.time()
-            features = model(imgs)
-            batch_time.update(time.time() - end)
-
-            features = features.data.cpu()
-            gf.append(features)
-            g_pids.extend(pids)
-            g_camids.extend(camids)
-        gf = torch.cat(gf, 0)
-        g_pids = np.asarray(g_pids)
-        g_camids = np.asarray(g_camids)
-
-        print(
-            "Extracted features for gallery set, obtained {}-by-{} matrix".format(
-                gf.size(0), gf.size(1)
-            )
-        )
-
-    print(
-        f"=> BatchTime(s)/BatchSize(img): {batch_time.avg:.3f}/{args.test_batch_size}"
-    )
-
-    m, n = qf.size(0), gf.size(0)
-    distmat = (
-        torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n)
-        + torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
-    )
-    distmat.addmm_(qf, gf.t(), beta=1, alpha=-2)
-    distmat = distmat.numpy()
-
-    print("Computing CMC and mAP")
-    # cmc, mAP = evaluate(distmat, q_pids, g_pids, q_camids, g_camids, args.target_names)
-    cmc, mAP = evaluate(distmat, q_pids, g_pids, q_camids, g_camids)
-
-    print("Results ----------")
-    print(f"mAP: {mAP:.1%}")
-    print("CMC curve")
-    for r in ranks:
-        print("Rank-{:<3}: {:.1%}".format(r, cmc[r - 1]))
-    print("------------------")
-
-    metrics = wandb_logger.format_test_metrics(mAP, cmc)
-    wandb_logger.log_test_metrics(metrics)
-
-    if return_distmat:
-        return distmat
-    return cmc[0]
-
-
-if __name__ == "__main__":
-    main()
+# def train(
+#     epoch, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
+# ):
+#     xent_losses = AverageMeter()
+#     htri_losses = AverageMeter()
+#     accs = AverageMeter()
+#     batch_time = AverageMeter()
+#     data_time = AverageMeter()
+#
+#     model.train()
+#     for p in model.parameters():
+#         p.requires_grad = True  # open all layers
+#
+#     end = time.time()
+#     for batch_idx, (imgs, pids, _, _) in enumerate(trainloader):
+#         data_time.update(time.time() - end)
+#
+#         if use_gpu:
+#             imgs, pids = imgs.cuda(), pids.cuda()
+#
+#         outputs, features = model(imgs)
+#         if isinstance(outputs, (tuple, list)):
+#             xent_loss = DeepSupervision(criterion_xent, outputs, pids)
+#         else:
+#             xent_loss = criterion_xent(outputs, pids)
+#
+#         if isinstance(features, (tuple, list)):
+#             htri_loss = DeepSupervision(criterion_htri, features, pids)
+#         else:
+#             htri_loss = criterion_htri(features, pids)
+#
+#         loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
+#
+#         batch_time.update(time.time() - end)
+#
+#         xent_losses.update(xent_loss.item(), pids.size(0))
+#         htri_losses.update(htri_loss.item(), pids.size(0))
+#         accs.update(accuracy(outputs, pids)[0])
+#
+#         if (batch_idx + 1) % args.print_freq == 0:
+#             print(
+#                 "Epoch: [{0}][{1}/{2}]\t"
+#                 "Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+#                 "Data {data_time.val:.4f} ({data_time.avg:.4f})\t"
+#                 "Xent {xent.val:.4f} ({xent.avg:.4f})\t"
+#                 "Htri {htri.val:.4f} ({htri.avg:.4f})\t"
+#                 "Acc {acc.val:.2f} ({acc.avg:.2f})\t".format(
+#                     epoch + 1,
+#                     batch_idx + 1,
+#                     len(trainloader),
+#                     batch_time=batch_time,
+#                     data_time=data_time,
+#                     xent=xent_losses,
+#                     htri=htri_losses,
+#                     acc=accs,
+#                 )
+#             )
+#             metrics = wandb_logger.format_train_metrics(
+#                 xent_losses.val,
+#                 htri_losses.val,
+#                 accs.val,
+#                 optimizer.param_groups[0]["lr"],
+#                 args.lambda_xent,
+#                 args.lambda_htri,
+#             )
+#             wandb_logger.log_train_metrics(metrics, epoch, batch_idx, len(trainloader))
+#         end = time.time()
+#
+#
+# def test(
+#     model,
+#     queryloader,
+#     galleryloader,
+#     use_gpu,
+#     ranks=[1, 5, 10, 20],
+#     return_distmat=False,
+# ):
+#     batch_time = AverageMeter()
+#
+#     model.eval()
+#
+#     with torch.no_grad():
+#         qf, q_pids, q_camids = [], [], []
+#         for batch_idx, (imgs, pids, camids, _) in enumerate(queryloader):
+#             if use_gpu:
+#                 imgs = imgs.cuda()
+#
+#             end = time.time()
+#             features = model(imgs)
+#             batch_time.update(time.time() - end)
+#
+#             features = features.data.cpu()
+#             qf.append(features)
+#             q_pids.extend(pids)
+#             q_camids.extend(camids)
+#         qf = torch.cat(qf, 0)
+#         q_pids = np.asarray(q_pids)
+#         q_camids = np.asarray(q_camids)
+#
+#         print(
+#             "Extracted features for query set, obtained {}-by-{} matrix".format(
+#                 qf.size(0), qf.size(1)
+#             )
+#         )
+#
+#         gf, g_pids, g_camids = [], [], []
+#         for batch_idx, (imgs, pids, camids, _) in enumerate(galleryloader):
+#             if use_gpu:
+#                 imgs = imgs.cuda()
+#
+#             end = time.time()
+#             features = model(imgs)
+#             batch_time.update(time.time() - end)
+#
+#             features = features.data.cpu()
+#             gf.append(features)
+#             g_pids.extend(pids)
+#             g_camids.extend(camids)
+#         gf = torch.cat(gf, 0)
+#         g_pids = np.asarray(g_pids)
+#         g_camids = np.asarray(g_camids)
+#
+#         print(
+#             "Extracted features for gallery set, obtained {}-by-{} matrix".format(
+#                 gf.size(0), gf.size(1)
+#             )
+#         )
+#
+#     print(
+#         f"=> BatchTime(s)/BatchSize(img): {batch_time.avg:.3f}/{args.test_batch_size}"
+#     )
+#
+#     m, n = qf.size(0), gf.size(0)
+#     distmat = (
+#         torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n)
+#         + torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
+#     )
+#     distmat.addmm_(qf, gf.t(), beta=1, alpha=-2)
+#     distmat = distmat.numpy()
+#
+#     print("Computing CMC and mAP")
+#     # cmc, mAP = evaluate(distmat, q_pids, g_pids, q_camids, g_camids, args.target_names)
+#     cmc, mAP = evaluate(distmat, q_pids, g_pids, q_camids, g_camids)
+#
+#     print("Results ----------")
+#     print(f"mAP: {mAP:.1%}")
+#     print("CMC curve")
+#     for r in ranks:
+#         print("Rank-{:<3}: {:.1%}".format(r, cmc[r - 1]))
+#     print("------------------")
+#
+#     metrics = wandb_logger.format_test_metrics(mAP, cmc)
+#     wandb_logger.log_test_metrics(metrics)
+#
+#     if return_distmat:
+#         return distmat
+#     return cmc[0]
+#
+#
+# if __name__ == "__main__":
+#     main()
