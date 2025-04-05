@@ -1,5 +1,5 @@
 # Copyright (c) EEEM071, University of Surrey
-
+from src.Model.model import MyModel as NewModel
 from .SpectralTransformer import (
     SpectralTransformer,
     # resnet18_fc512,
@@ -15,6 +15,7 @@ from .SpectralTransformer import (
 __model_factory = {
     # image classification models
     "SpectralTransformer": SpectralTransformer,
+    "NewModel": NewModel,
     # "resnet18_fc512": resnet18_fc512,
     # "resnet34": resnet34,
     # "resnet34_fc512": resnet34_fc512,
