@@ -11,6 +11,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from args import argument_parser, dataset_kwargs, optimizer_kwargs, lr_scheduler_kwargs
 from src.Models.SpectralTransformer import SpectralTransformer
+from src import Models
 
 from src.utils.loggers import Logger
 from src.utils.wandb_logger import WandBLogger
@@ -59,16 +60,15 @@ def main():
             remasteredDataDirectory=referenceImageDirectory
         )
         dm.download()
-        #dm.preProcess()
-        print(dm.currentRawDataDirectory)
-        print(dm.currentReferenceDataDirectory)
-        #dm.dataAugment()
+        dm.preProcess()
+        dm.dataAugment()
+
         print("Starting training")
         print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
         print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
 
         trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
-        trainer.train(args.max_epoch, args.lr)
+        trainer.train(args.arch ,args.max_epoch, args.lr)
     else:
         pthFileLocation = "best_spectral_transformer.pth"
         fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"

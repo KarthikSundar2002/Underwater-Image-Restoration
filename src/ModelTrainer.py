@@ -4,6 +4,8 @@ import datetime
 
 import torch
 import importlib
+
+from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
 import torch.optim as optim
@@ -17,7 +19,7 @@ class ModelTrainer:
         self.referenceDir = referenceDirectory
 
 
-    def train(self, num_epochs=10, learning_rate=0.001, device="cuda" if torch.cuda.is_available() else "cpu"):
+    def train(self, arch="SpectroFormer", num_epochs=10, learning_rate=0.001, device="cuda" if torch.cuda.is_available() else "cpu"):
         """
         Train the Spectral Transformer model on UIEB dataset
 
@@ -43,7 +45,10 @@ class ModelTrainer:
 
         # Initialize the model
         print("Initializing model...")
-        model = SpectralTransformer().to(device)
+        model = Models.init_model(
+            name=arch,
+        )
+        model = model.to(device)
 
         # Define loss function and optimizer
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
