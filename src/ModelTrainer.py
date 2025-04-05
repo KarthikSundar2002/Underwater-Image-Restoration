@@ -5,6 +5,9 @@ import datetime
 import torch
 import importlib
 
+from pytorch_msssim import MS_SSIM
+
+from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
@@ -51,6 +54,11 @@ class ModelTrainer:
         model = model.to(device)
 
         # Define loss function and optimizer
+        gradient_loss = Gradient_Loss().to(device)
+        charbonnier_loss = CharbonnierLoss().to(device)
+        perceptual_loss = VGGPerceptualLoss().to(device)
+        ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
+
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -74,7 +82,7 @@ class ModelTrainer:
                 outputs = model(raw_imgs)
 
                 # Calculate loss
-                loss = criterion(outputs, ref_imgs)
+                loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
 
                 # Backward pass and optimize
                 loss.backward()

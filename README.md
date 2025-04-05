@@ -13,3 +13,4 @@ wandb login
 pip install python-dotenv
 pip install iotools
 pip install scikit-image
+pip install pytorch-msssim

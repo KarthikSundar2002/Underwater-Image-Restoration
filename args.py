@@ -198,7 +198,7 @@ def argument_parser():
     # ************************************************************
     # Architecture
     # ************************************************************
-    parser.add_argument("-a", "--arch", type=str, default="resnet50")
+    parser.add_argument("-a", "--arch", type=str, default="SpectralTransformer")
     parser.add_argument(
         "--no-pretrained", action="store_true", help="do not load pretrained weights"
     )
