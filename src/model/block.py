@@ -9,7 +9,7 @@ from einops.layers.torch import Rearrange
 
 from timm.models.layers import trunc_normal_, to_2tuple, DropPath
 
-from src.Model.wave_modules import DWT_2D, IDWT_2D
+from src.model.wave_modules import DWT_2D, IDWT_2D
 
 def window_partition(x, win_size, dilation_rate=1):
     B, H, W, C = x.shape

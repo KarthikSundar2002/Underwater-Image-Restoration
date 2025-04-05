@@ -5,8 +5,8 @@ import torch.nn.functional as F
 from timm.models.layers import DropPath, to_2tuple
 from einops import rearrange
 
-from src.Model.block import FRFN, Downsample,Upsample, InputProjection, OutputProjection, LeFF, MDASSA
-from src.Model.wave_modules import DWT_2D, IDWT_2D
+from src.model.block import FRFN, Downsample,Upsample, InputProjection, OutputProjection, LeFF, MDASSA
+from src.model.wave_modules import DWT_2D, IDWT_2D
 
 import math
 
