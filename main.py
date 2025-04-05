@@ -1,61 +1,35 @@
 # Copyright (c) EEEM071, University of Surrey
-import datetime
 import os
 import os.path as osp
 import sys
 import time
 import warnings
-from logging import exception
-
 import cv2
-
 import src.ModelTrainer as mt
-
-
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch.nn as nn
 from args import argument_parser, dataset_kwargs, optimizer_kwargs, lr_scheduler_kwargs
 from src.Models.SpectralTransformer import mymodel
-# from src import models
-# from src.data_manager import ImageDataManager
-# from src.eval_metrics import evaluate
-# from src.losses import CrossEntropyLoss, TripletLoss, DeepSupervision
-# from src.lr_schedulers import init_lr_scheduler
-# from src.optimizers import init_optimizer
-# from src.utils.avgmeter import AverageMeter
-# from src.utils.generaltools import set_random_seed
-# from src.utils.iotools import check_isfile
-from src.utils.loggers import Logger#, RankLogger
-# from src.utils.torchtools import (
-#     count_num_param,
-#     accuracy,
-#     load_pretrained_weights,
-#     save_checkpoint,
-#     resume_from_checkpoint,
-# )
-# from src.utils.visualtools import visualize_ranked_results
+
+from src.utils.loggers import Logger
 from src.utils.wandb_logger import WandBLogger
 import src.DataManipulation.DataManager as dataManager
-import uuid
 
-# global variables
 parser = argument_parser()
 args = parser.parse_args()
-
 
 def main():
     global args, wandb_logger
     print(args.evaluate)
 
-    #set_random_seed(args.seed)
     if not args.use_avai_gpus:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_devices
 
     use_gpu = torch.cuda.is_available()
     if args.use_cpu:
         use_gpu = False
+
     outputdirectory = "logs/" + "/arch-" + str(args.arch) + "/optimizer-" + str(args.optim) + "/maxEpoch-" + str(args.max_epoch) + "/lr-" + str(args.lr)  + "/batchSize-" + str(args.train_batch_size) + "/perspective-" + str(args.randomPerspective) + "-rotate-" + str(args.randomRotate)
     args.save_dir = outputdirectory
     log_name = "log_test.txt" if args.evaluate else "log_train.txt"
@@ -96,33 +70,24 @@ def main():
         trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
         trainer.train(args.max_epoch, args.lr)
     else:
-        #Todo: this is terrible code, need to refactors
-        print("Good")
+        pthFileLocation = "best_spectral_transformer.pth"
+        fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+
+        device = "cuda" if use_gpu else "cpu"
 
         model = mymodel()
-        PATH = "best_spectral_transformer.pth"
+        model.load_state_dict(torch.load(pthFileLocation, weights_only=True)["model_state_dict"])
 
-        model.load_state_dict(torch.load(PATH, weights_only=True)["model_state_dict"])
-
-        fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
         img = cv2.imread(fileToTest)
         img_array = np.array(img)
-
-        from matplotlib import pyplot as plt
-        plt.imshow(img_array, interpolation='nearest')
-        plt.show()
 
         input_tensor = torch.from_numpy(img_array)
         input_tensor = input_tensor.permute(2, 0, 1)
         input_tensor = input_tensor.unsqueeze(0)
         input_tensor = input_tensor.float()
-        print(input_tensor.shape)
-
-        device = "cuda" if use_gpu else "cpu"
 
         model.to(device)
         input_tensor = input_tensor.to(device)
-
 
         result = model(input_tensor)
         result_cpu = result.detach().cpu()
@@ -146,6 +111,8 @@ def main():
         plt.imshow(result_numpy, interpolation='nearest')
         plt.show()
 
+        plt.imshow(img_array, interpolation='nearest')
+        plt.show()
 
 if __name__ == "__main__":
     main()
