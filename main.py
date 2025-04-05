@@ -79,11 +79,12 @@ def main():
         referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
 
         dm = dataManager.DataManager()
-        #dm.download()
+
         dm.setDownloadedLocations(
             rawDataDirectory=rawImageDirectory,
             remasteredDataDirectory=referenceImageDirectory
         )
+        dm.download()
         #dm.preProcess()
         print(dm.currentRawDataDirectory)
         print(dm.currentReferenceDataDirectory)
