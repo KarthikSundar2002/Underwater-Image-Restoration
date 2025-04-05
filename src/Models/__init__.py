@@ -1,5 +1,5 @@
 # Copyright (c) EEEM071, University of Surrey
-from src.Model.model import MyModel as NewModel
+from src.model.model import MyModel as NewModel
 from .SpectralTransformer import (
     SpectralTransformer,
     # resnet18_fc512,
