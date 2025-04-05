@@ -205,7 +205,7 @@ class MyModel(nn.Module):
         conv3 = self.encoder_3(pool2, mask=mask)
         pool3 = self.downsample_3(conv3)
 
-        bottleneck = self.bottleneck(pool3, mask=mask)
+        bottleneck = self.bottleneck(pool3)
 
         up3 = self.upsample_3(bottleneck)
         dec3 = self.decoder_3(up3, enc_out=conv3)

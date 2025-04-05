@@ -268,7 +268,7 @@ class WindowAttention_Sparse(nn.Module):
     
     def forward(self, x, attn_kv=None, mask=None):
         B_, N, C = x.shape
-        q,k,v = self.qkv(x, attn_kv)
+        q,k,v = self.to_qkv(x, attn_kv)
         q = q * self.scale
         attn = (q @ k.transpose(-2, -1))
 
@@ -299,7 +299,7 @@ class WindowAttention_Sparse(nn.Module):
         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
-        return x, 
+        return x
 
     def extra_repr(self):
         return f'dim={self.dim}, win_size={self.win_size}, num_heads={self.num_heads}'
