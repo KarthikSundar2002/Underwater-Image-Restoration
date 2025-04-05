@@ -67,6 +67,12 @@ class EncoderBlock(nn.Module):
         freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H//2, w=W//2)
         freq_x = self.idwt(freq_x)
 
+       
+        freq_x = rearrange(freq_x,'b c h w -> b (h w) c')
+        print(f"Freq_x after IDWT shape: {freq_x.shape}")
+        print(f"shortcut shape: {shortcut.shape}")
+        print(f"X shape: {x.shape}")
+
         x = shortcut + self.drop_path2(freq_x) +self.drop_path(x)
         return x
     

@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pywt
 
+from einops import rearrange
+
 class DWT_function(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, w_ll, w_lh, w_hl, w_hh):
@@ -40,12 +42,17 @@ class IDWT_function(torch.autograd.Function):
     def forward(ctx, x, filters):
         ctx.save_for_backward(filters)
         ctx.shape = x.shape
+        
 
         B, C, H, W = x.shape
-        x = x.view(B, 4, -1, H, W).transpose(1,2)
+        x = rearrange(x, 'b (n c) h w -> b c n h w', n = 4)
+        
         C = x.shape[1]
-        x = x.reshape(B, -1, H, W)
-        filters = filters.expand(C, 1, 1, 1)
+        x = rearrange(x, 'b c n h w -> b (n c) h w')
+        
+        dim = x.shape[1]
+        filters = filters.expand(dim, 4, 2, 2)
+
         x = torch.nn.functional.conv_transpose2d(x, filters, stride=2, groups=C)
         return x
     
@@ -118,8 +125,7 @@ class IDWT_2D(nn.Module):
         # w_lh = w_lh.unsqueeze(0).unsqueeze(0)
         # w_hh = w_hh
 
-        filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=0)
-        print(f"filters shape: {filters.shape}")
+        filters = torch.stack([w_ll, w_lh, w_hl, w_hh], dim=0)
         self.register_buffer('filters', filters)
         self.filters = self.filters.to(dtype=torch.float32)
     
