@@ -192,18 +192,19 @@ class MyModel(nn.Module):
     def forward(self, x, mask=None):
         if mask is not None:
             x = x * mask
-        
+        # Input - x: (B, C, H, W) - B, 3, 256, 256
         y = self.input_proj(x)
         print(f"Input Projection shape: {y.shape}")
+        # y - y: (B, L, C) - B, 256*256, 32
 
-        conv0 = self.encoder_0(y, mask=mask)
-        pool0 = self.downsample_0(conv0)
-        conv1 = self.encoder_1(pool0, mask=mask)
-        pool1 = self.downsample_1(conv1)
-        conv2 = self.encoder_2(pool1, mask=mask)
-        pool2 = self.downsample_2(conv2)
-        conv3 = self.encoder_3(pool2, mask=mask)
-        pool3 = self.downsample_3(conv3)
+        conv0 = self.encoder_0(y, mask=mask) # conv0 - (B, L, C) - B, 256*256, 32
+        pool0 = self.downsample_0(conv0) # pool0 - (B, L/4, C*2) - B, 128*128, 64
+        conv1 = self.encoder_1(pool0, mask=mask) # conv1 - (B, L/4, C*2) - B, 128*128, 64
+        pool1 = self.downsample_1(conv1) # pool1 - (B, L/8, C*4) - B, 64*64, 128
+        conv2 = self.encoder_2(pool1, mask=mask) # conv2 - (B, L/8, C*4) - B, 64*64, 128
+        pool2 = self.downsample_2(conv2) # pool2 - (B, L/16, C*8) - B, 32*32, 256
+        conv3 = self.encoder_3(pool2, mask=mask) # conv3 - (B, L/16, C*8) - B, 32*32, 256
+        pool3 = self.downsample_3(conv3) # pool3 - (B, L/32, C*16) - B, 16*16, 512
 
         bottleneck = self.bottleneck(pool3)
 

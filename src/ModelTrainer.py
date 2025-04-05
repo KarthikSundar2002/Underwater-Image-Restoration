@@ -12,6 +12,7 @@ from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
 import torch.optim as optim
+from torch.optim.lr_scheduler import CosineAnnealingLR
 import time
 from tqdm import tqdm
 
@@ -61,7 +62,7 @@ class ModelTrainer:
 
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
+        scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
         # Training loop
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
@@ -87,6 +88,7 @@ class ModelTrainer:
                 # Backward pass and optimize
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
 
                 epoch_loss += loss.item()
 
@@ -107,7 +109,7 @@ class ModelTrainer:
                     ref_imgs = ref_imgs.to(device)
 
                     outputs = model(raw_imgs)
-                    loss = criterion(outputs, ref_imgs)
+                    loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
                     val_loss += loss.item()
 
             avg_val_loss = val_loss / len(test_loader)
@@ -123,6 +125,11 @@ class ModelTrainer:
                     'loss': best_loss,
                 }, 'best_spectral_transformer.pth')
                 print(f"Model saved with loss: {best_loss:.6f}")
+            torch.save({'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': avg_val_loss,
+                }, 'latest_spectroformer.pth')
 
         print("Training completed!")
         return model

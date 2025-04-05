@@ -45,6 +45,7 @@ class IDWT_function(torch.autograd.Function):
         
 
         B, C, H, W = x.shape
+        print(f"IDWT input shape: {x.shape}")
         x = rearrange(x, 'b (n c) h w -> b c n h w', n = 4)
         
         C = x.shape[1]
@@ -54,6 +55,7 @@ class IDWT_function(torch.autograd.Function):
         filters = filters.expand(dim, 4, 2, 2)
 
         x = torch.nn.functional.conv_transpose2d(x, filters, stride=2, groups=C)
+        print(f"IDWT output shape: {x.shape}")
         return x
     
     @staticmethod

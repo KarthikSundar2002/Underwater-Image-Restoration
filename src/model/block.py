@@ -120,20 +120,25 @@ class LinearProjection(nn.Module):
         inner_dim = dim_head *  heads
         self.heads = heads
         self.to_q = nn.Linear(dim, inner_dim, bias = bias)
-        self.to_kv = nn.Linear(dim, inner_dim * 2, bias = bias)
+        self.to_kv_from_q = nn.Linear(dim, inner_dim * 2, bias = bias)
+        self.to_kv = nn.Linear(dim*2, inner_dim * 2, bias = bias)
         self.dim = dim
         self.inner_dim = inner_dim
 
     def forward(self, x, attn_kv=None):
         B, N, C = x.shape
         if attn_kv is None:
+            print("attn_kv is None")
             attn_kv = x
-        N_kv = attn_kv.size(1)
+            kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+        else:
+            N_kv = attn_kv.size(1)
+            kv = self.to_kv(attn_kv).reshape(B, N_kv, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
         print(f"x shape: {x.shape}")
 
         print(f"attn_kv shape: {attn_kv.shape}")
         q = self.to_q(x).reshape(B, N, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
-        kv = self.to_kv(attn_kv).reshape(B, N_kv, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+        
         q = q[0]
         k, v = kv[0], kv[1] 
         return q,k,v
@@ -327,7 +332,7 @@ class MDASSA(nn.Module):
         self.conv1x1 = nn.Conv2d(dim, dim*2, kernel_size=1, stride=1, padding=0)
         self.fdfp = FDFP(dim, dim*2, act_layer=act_layer)
         self.freq_attn = WindowAttention_Sparse(
-            dim*2, win_size=to_2tuple(win_size),
+            dim, win_size=to_2tuple(win_size),
             num_heads=num_heads, token_projection=token_projection, qkv_bias=qkv_bias, 
             qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=proj_drop)
         
@@ -392,7 +397,7 @@ class MDASSA(nn.Module):
         x = shortcut + self.spatial_drop_path(x)
         x = rearrange(x, 'b (h w) c -> b c h w', h=H, w=W)
         print(f"x shape after spatial attention: {x.shape}")
-        
+        print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
         print(f"freq_q shape: {freq_q.shape}")
         freq_q = rearrange(freq_q, 'b  h w c -> b (h w) c')
@@ -410,8 +415,8 @@ class FDFP(nn.Module):
         super().__init__()
         self.dwt = DWT_2D(wave='haar')
         self.idwt = IDWT_2D(wave='haar')
-        self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1, stride=1)
+        self.conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1, stride=1)
         self.act = act_layer()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
@@ -420,10 +425,15 @@ class FDFP(nn.Module):
         B, H, W, C = x.shape
         x = rearrange(x, 'b h w c -> b c h w')
         x = self.dwt(x)
+        print(f"x shape after dwt in FDFP: {x.shape}")
         x = self.conv1(x)
+        print(f"x shape after conv1 in FDFP: {x.shape}")
         x = self.act(x)
+
         x = self.conv2(x)
+        print(f"x shape after conv2 in FDFP: {x.shape}")
         x = self.idwt(x)
+        print(f"x shape after idwt in FDFP: {x.shape}")
         x = rearrange(x, 'b c h w -> b h w c')
         
         return x
