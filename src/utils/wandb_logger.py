@@ -21,6 +21,7 @@ class WandBLogger:
             # aug_name = "+".join(augmentations) if augmentations else "base"
             #
             # aug_name = self._get_aug_name()
+            wandb.login(key=os.getenv("WANDB_API_KEY"))
             wandb.init(
                 project="AML-Coursework",
                 name=f"{args.arch}_{args.lr:.0e}_{args.train_batch_size}_{args.optim}_{args.max_epoch}",

@@ -1,18 +1,15 @@
 import math
-from re import S
-import token
-from networkx import from_prufer_sequence
-from numpy import short
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import einsum
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
 from timm.models.layers import trunc_normal_, to_2tuple, DropPath
 
-from model.wave_modules import DWT_2D, IDWT_2D
+from src.Model.wave_modules import DWT_2D, IDWT_2D
 
 def window_partition(x, win_size, dilation_rate=1):
     B, H, W, C = x.shape
@@ -27,12 +24,25 @@ def window_partition(x, win_size, dilation_rate=1):
         windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, win_size, win_size, C) # B' ,Wh ,Ww ,C
     return windows
 
+
+def window_reverse(windows, win_size, H, W, dilation_rate=1):
+    # B' ,Wh ,Ww ,C
+    B = int(windows.shape[0] / (H * W / win_size / win_size))
+    x = windows.view(B, H // win_size, W // win_size, win_size, win_size, -1)
+    if dilation_rate !=1:
+        x = windows.permute(0,5,3,4,1,2).contiguous() # B, C*Wh*Ww, H/Wh*W/Ww
+        x = F.fold(x, (H, W), kernel_size=win_size, dilation=dilation_rate, padding=4*(dilation_rate-1),stride=win_size)
+    else:
+        x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
+    return x
+
+
 class InputProjection(nn.Module):
-    def __init__(self, in_channels=3, out_channels=64, kernel_size=3, stride=1, norm_layer=None, act_layer=nn.LeakyReLU()):
+    def __init__(self, in_channels=3, out_channels=64, kernel_size=3, stride=1, norm_layer=None, act_layer=nn.LeakyReLU):
         super().__init__()
         self.proj = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
-            act_layer(inplace=True),
+            act_layer(inplace=True) if act_layer is not None else nn.Identity(),
         )
         if norm_layer is not None:
             self.norm = norm_layer(out_channels)
@@ -178,7 +188,7 @@ class FRFN(nn.Module):
     def __init__(self, dim=32, hidden_dim=128, act_layer=nn.GELU, drop=0., use_eca=False):
         super().__init__()
         self.linear1 = nn.Sequential(nn.Linear(dim, hidden_dim*2), act_layer())
-        self.dwconv = nn.Sequential((nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, kernel_size=3, stride=1, padding=1), act_layer())
+        self.dwconv = nn.Sequential((nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, kernel_size=3, stride=1, padding=1), act_layer()))
         self.linear2 = nn.Sequential(nn.Linear(hidden_dim, dim))
         self.dim = dim
         self.hidden_dim = hidden_dim
@@ -296,9 +306,17 @@ class WindowAttention_Sparse(nn.Module):
 
     
 class MDASSA(nn.Module):
-    def __init__(self, dim, win_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0.):    
+    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU):    
         super().__init__()
-        
+        self.dim = dim
+        self.win_size = win_size
+        self.shift_size = shift_size
+        self.num_heads = num_heads
+        self.qk_scale = qk_scale
+        self.qkv_bias = qkv_bias
+        self.token_projection = token_projection
+
+
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention_Sparse(
             dim, win_size=to_2tuple(win_size),
@@ -382,6 +400,7 @@ class MDASSA(nn.Module):
 
 class FDFP(nn.Module):
     def __init__(self, in_channels, hidden_channels,act_layer=nn.GELU):
+        super().__init__()
         self.dwt = DWT_2D(wave='haar')
         self.idwt = IDWT_2D(wave='haar')
         self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1, stride=1, padding=1)

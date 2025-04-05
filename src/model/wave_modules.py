@@ -1,4 +1,4 @@
-from turtle import forward
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,11 +12,14 @@ class DWT_function(torch.autograd.Function):
         ctx.shape = x.shape
 
         dim = x.shape[1]
-        x_ll = F.conv2d(x, w_ll.expand(dim, 1, 1, 1), stride = 2, groups = dim)
-        x_lh = F.conv2d(x, w_lh.expand(dim, 1, 1, 1), stride = 2, groups = dim)
-        x_hl = F.conv2d(x, w_hl.expand(dim, 1, 1, 1), stride = 2, groups = dim)
-        x_hh = F.conv2d(x, w_hh.expand(dim, 1, 1, 1), stride = 2, groups = dim)
+        
+        print(f"Input shape: {x.shape}")
+        x_ll = F.conv2d(x, w_ll, stride = 2)
+        x_lh = F.conv2d(x, w_lh, stride = 2)
+        x_hl = F.conv2d(x, w_hl, stride = 2)
+        x_hh = F.conv2d(x, w_hh, stride = 2)
         x = torch.cat((x_ll, x_lh, x_hl, x_hh), dim=1)
+        
         return x
 
     @staticmethod
@@ -28,7 +31,7 @@ class DWT_function(torch.autograd.Function):
 
             dx = dx.transpose(1,2).reshape(B, -1, H//2, W//2)
             filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=1)
-            dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=2, groups=C)
+            dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=1)
 
         return dx, None, None, None, None
 
@@ -39,7 +42,7 @@ class IDWT_function(torch.autograd.Function):
         ctx.shape = x.shape
 
         B, C, H, W = x.shape
-        x = x.view(B, 4, -1, H//2, W//2).transpose(1,2)
+        x = x.view(B, 4, -1, H, W).transpose(1,2)
         C = x.shape[1]
         x = x.reshape(B, -1, H, W)
         filters = filters.expand(C, 1, 1, 1)
@@ -72,17 +75,30 @@ class DWT_2D(nn.Module):
         w_lh = dec_lo.unsqueeze(0) * dec_hi.unsqueeze(1)
         w_hh = dec_hi.unsqueeze(0) * dec_hi.unsqueeze(1)
 
-        self.register_buffer('w_ll', w_ll.unsqueeze(0).unsqueeze(0))
-        self.register_buffer('w_hl', w_hl.unsqueeze(0).unsqueeze(0))
-        self.register_buffer('w_lh', w_lh.unsqueeze(0).unsqueeze(0))
-        self.register_buffer('w_hh', w_hh.unsqueeze(0).unsqueeze(0))
+        self.register_buffer('w_ll', w_ll)
+        self.register_buffer('w_hl', w_hl)
+        self.register_buffer('w_lh', w_lh)
+        self.register_buffer('w_hh', w_hh)
 
-        self.w_ll = self.w_ll.to(dtype=torch.float16)
-        self.w_lh = self.w_lh.to(dtype=torch.float16)
-        self.w_hl = self.w_hl.to(dtype=torch.float16)
-        self.w_hh = self.w_hh.to(dtype=torch.float16)
+        self.w_ll = w_ll
+        self.w_lh = w_lh
+        self.w_hl = w_hl
+        self.w_hh = w_hh
 
     def forward(self, x):
+        a = self.w_ll.shape[0]
+        b = self.w_ll.shape[1]
+        dim = x.shape[1]
+        self.w_ll = self.w_ll.expand(dim//4, dim, a, b)
+        self.w_lh = self.w_lh.expand(dim//4, dim, a, b)
+        self.w_hl = self.w_hl.expand(dim//4, dim, a, b)
+        self.w_hh = self.w_hh.expand(dim//4, dim, a, b)
+        print(f"w_ll shape: {self.w_ll.shape}")
+        print(f"w_lh shape: {self.w_lh.shape}")
+        print(f"w_hl shape: {self.w_hl.shape}")
+        print(f"w_hh shape: {self.w_hh.shape}")
+
+
         return DWT_function.apply(x, self.w_ll, self.w_lh, self.w_hl, self.w_hh)
 
 class IDWT_2D(nn.Module):
@@ -97,14 +113,17 @@ class IDWT_2D(nn.Module):
         w_lh = rec_lo.unsqueeze(0) * rec_hi.unsqueeze(1)
         w_hh = rec_hi.unsqueeze(0) * rec_hi.unsqueeze(1)
 
-        w_ll = w_ll.unsqueeze(0).unsqueeze(0)
-        w_hl = w_hl.unsqueeze(0).unsqueeze(0)
-        w_lh = w_lh.unsqueeze(0).unsqueeze(0)
-        w_hh = w_hh.unsqueeze(0).unsqueeze(0)
+        # w_ll = w_ll.
+        # w_hl = w_hl.unsqueeze(0).unsqueeze(0)
+        # w_lh = w_lh.unsqueeze(0).unsqueeze(0)
+        # w_hh = w_hh
 
         filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=0)
+        print(f"filters shape: {filters.shape}")
         self.register_buffer('filters', filters)
-        self.filters = self.filters.to(dtype=torch.float16)
+        self.filters = self.filters.to(dtype=torch.float32)
     
     def forward(self, x):
+        print(f"IDWT input shape: {x.shape}")
+        print(f"IDWT filters shape: {self.filters.shape}")
         return IDWT_function.apply(x, self.filters)
