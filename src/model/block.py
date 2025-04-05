@@ -126,11 +126,12 @@ class LinearProjection(nn.Module):
 
     def forward(self, x, attn_kv=None):
         B, N, C = x.shape
-        if attn_kv is not None:
-            attn_kv = attn_kv.unsqueeze(0).repeat(B,1,1)
-        else:
+        if attn_kv is None:
             attn_kv = x
         N_kv = attn_kv.size(1)
+        print(f"x shape: {x.shape}")
+
+        print(f"attn_kv shape: {attn_kv.shape}")
         q = self.to_q(x).reshape(B, N, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
         kv = self.to_kv(attn_kv).reshape(B, N_kv, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
         q = q[0]
@@ -362,11 +363,12 @@ class MDASSA(nn.Module):
             shift_attn_mask = shift_attn_mask.torch.masked_fill(shift_attn_mask!=0, float(-100.0)).masked_fill(shift_attn_mask == 0, float(0.0))
             attn_mask = attn_mask + shift_attn_mask if attn_mask is not None else shift_attn_mask
 
-        shortcut = x 
-        freq_in = x
+        shortcut = x
+        
 
         x = self.norm1(x)
         x = x.view(B, H, W, C)
+        freq_in = x
         
         if self.shift_size > 0:
             shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
@@ -379,7 +381,7 @@ class MDASSA(nn.Module):
         attn_windows = self.attn(x_windows, mask=attn_mask)
 
         attn_windows = attn_windows.view(-1, self.win_size, self.win_size, C)
-        shifted_x = window_reverse(attn_windows, self.win_size, (H, W))
+        shifted_x = window_reverse(attn_windows, self.win_size, H, W)
 
         if self.shift_size > 0:
             x = torch.roll(shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
@@ -388,10 +390,15 @@ class MDASSA(nn.Module):
         
         x = x.view(B, H * W, C)
         x = shortcut + self.spatial_drop_path(x)
-
-        freq_q = self.fdfp(freq_in)
-        kv = self.conv1x1(x)
+        x = rearrange(x, 'b (h w) c -> b c h w', h=H, w=W)
+        print(f"x shape after spatial attention: {x.shape}")
         
+        freq_q = self.fdfp(freq_in)
+        print(f"freq_q shape: {freq_q.shape}")
+        freq_q = rearrange(freq_q, 'b  h w c -> b (h w) c')
+        kv = self.conv1x1(x)
+        print(f"kv shape: {kv.shape}")
+        kv = rearrange(kv, 'b c h w -> b (h w) c')
         freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
         freq_attn = x + self.freq_drop_path(freq_attn)
 
