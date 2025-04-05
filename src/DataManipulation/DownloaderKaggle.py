@@ -11,7 +11,7 @@ import shutil
 class DownloaderKaggle:
     def __init__(self,
                  KaggleName,
-                 pathToAuthJson = 'src/Secrets/Secret/kaggle.json',
+                 pathToAuthJson = 'Secrets/Secret/kaggle.json',
                  destinationDirectory = "../data/kaggle/"):
         self._datasetName = KaggleName
         self._pathToAuthJson = pathToAuthJson

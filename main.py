@@ -61,7 +61,7 @@ def main():
         )
         dm.download()
         dm.preProcess()
-        dm.dataAugment()
+        #dm.dataAugment() - this does NOT work - missmatch in the dataloader with increased number of raw images
 
         print("Starting training")
         print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
