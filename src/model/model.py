@@ -1,13 +1,12 @@
-from multiprocessing import pool
-from turtle import forward
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.blocks import FRFN, Downsample,Upsample, InputProjection, OutputProjection, LeFF, MDASSA
-
-from model.wave_modules import DWT_2D, IDWT_2D
 from timm.models.layers import DropPath, to_2tuple
+from einops import rearrange
+
+from src.Model.block import FRFN, Downsample,Upsample, InputProjection, OutputProjection, LeFF, MDASSA
+from src.Model.wave_modules import DWT_2D, IDWT_2D
 
 import math
 
@@ -58,8 +57,14 @@ class EncoderBlock(nn.Module):
         x = self.norm1(x)
         x = self.mlp(x)
 
+        print(f"Freq_x shape: {freq_x.shape}")
+        freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H, w=W)
         freq_x = self.dwt(freq_x)
+        print(f"Freq_x after DWT shape: {freq_x.shape}")
+        freq_x = rearrange(freq_x,'b c h w -> b (h w) c')
         freq_x = self.freq_mlp(freq_x)
+        print(f"Freq_x after freq_mlp shape: {freq_x.shape}")
+        freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H//2, w=W//2)
         freq_x = self.idwt(freq_x)
 
         x = shortcut + self.drop_path2(freq_x) +self.drop_path(x)
@@ -183,7 +188,7 @@ class MyModel(nn.Module):
             x = x * mask
         
         y = self.input_proj(x)
-        y = y.pos_drop(y)
+        print(f"Input Projection shape: {y.shape}")
 
         conv0 = self.encoder_0(y, mask=mask)
         pool0 = self.downsample_0(conv0)

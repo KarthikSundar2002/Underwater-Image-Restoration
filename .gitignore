@@ -3,3 +3,11 @@
 .idea/*
 data/
 /src/Secrets/Secret
+/logs/*
+/wandb/*
+src/__pycache__/*
+src/Model/__pycache__/*
+src/DataManipulation/__pycache__/*
+src/utils/__pycache__/*
+/__pycache__/*
+.env
