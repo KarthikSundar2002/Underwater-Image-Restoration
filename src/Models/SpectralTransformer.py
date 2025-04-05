@@ -253,14 +253,14 @@ class UpS(nn.Module):
         return self.reduce(out)
 
 
-class mymodel(nn.Module):
+class SpectralTransformer(nn.Module):
     """
     Complete Spectral Transformer model for underwater image enhancement
     """
 
     def __init__(self, num_blocks=[2, 3, 3, 4], num_heads=[1, 2, 4, 8], channels=[16, 32, 64, 128], num_refinement=4,
                  expansion_factor=2.66, ch=[64, 32, 16, 64]):
-        super(mymodel, self).__init__()
+        super(SpectralTransformer, self).__init__()
 
         #self.attention = nn.ModuleList([SFCA(num_ch) for num_ch in ch])
         self.embed_conv_rgb = nn.Conv2d(3, channels[0], kernel_size=3, padding=1, bias=False)

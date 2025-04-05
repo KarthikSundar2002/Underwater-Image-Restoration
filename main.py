@@ -10,7 +10,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from args import argument_parser, dataset_kwargs, optimizer_kwargs, lr_scheduler_kwargs
-from src.Models.SpectralTransformer import mymodel
+from src.Models.SpectralTransformer import SpectralTransformer
 
 from src.utils.loggers import Logger
 from src.utils.wandb_logger import WandBLogger
@@ -75,7 +75,7 @@ def main():
 
         device = "cuda" if use_gpu else "cpu"
 
-        model = mymodel()
+        model = SpectralTransformer()
         model.load_state_dict(torch.load(pthFileLocation, weights_only=True)["model_state_dict"])
 
         img = cv2.imread(fileToTest)

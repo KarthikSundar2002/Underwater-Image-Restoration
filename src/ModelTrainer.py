@@ -5,7 +5,7 @@ import datetime
 import torch
 import importlib
 from src.DataManipulation.DataLoader import get_dataloaders
-from src.Models.SpectralTransformer import mymodel
+from src.Models.SpectralTransformer import SpectralTransformer
 import torch.optim as optim
 import time
 from tqdm import tqdm
@@ -43,7 +43,7 @@ class ModelTrainer:
 
         # Initialize the model
         print("Initializing model...")
-        model = mymodel().to(device)
+        model = SpectralTransformer().to(device)
 
         # Define loss function and optimizer
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
@@ -124,7 +124,7 @@ class ModelTrainer:
             model_path (str): Path to the saved model
             device (str): Device to run evaluation on ('cuda' or 'cpu')
         """
-        from src.Models.SpectralTransformer import mymodel
+        from src.Models.SpectralTransformer import SpectralTransformer
         import numpy as np
         from skimage.metrics import peak_signal_noise_ratio as psnr
         from skimage.metrics import structural_similarity as ssim
@@ -134,7 +134,7 @@ class ModelTrainer:
         _, test_loader = get_dataloaders(self.rawDataDirectory, self.remasteredDataDirectory, batch_size=1)
 
         # Load model
-        model = mymodel().to(device)
+        model = SpectralTransformer().to(device)
         checkpoint = torch.load(model_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         model.eval()
