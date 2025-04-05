@@ -16,6 +16,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import time
 from tqdm import tqdm
 
+from src.utils.Visualiser import ProcessImageUsingModel
+
 
 class ModelTrainer:
     def __init__(self, inputDirectory, referenceDirectory):
@@ -112,8 +114,11 @@ class ModelTrainer:
                     loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
                     val_loss += loss.item()
 
+
+
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")
+            fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
 
             # Save model if it's the best so far
             if avg_val_loss < best_loss:
@@ -125,11 +130,16 @@ class ModelTrainer:
                     'loss': best_loss,
                 }, 'best_spectral_transformer.pth')
                 print(f"Model saved with loss: {best_loss:.6f}")
+                with torch.no_grad():
+                    ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
+
             torch.save({'epoch': epoch,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': avg_val_loss,
                 }, 'latest_spectroformer.pth')
+            with torch.no_grad():
+                ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}")
 
         print("Training completed!")
         return model
