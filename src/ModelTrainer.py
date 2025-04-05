@@ -1,5 +1,7 @@
 import pathlib as pl
 import os
+import datetime
+
 import torch
 import importlib
 from src.DataManipulation.DataLoader import get_dataloaders
@@ -37,7 +39,7 @@ class ModelTrainer:
         #                           "augmented_remastered")
 
         # Get train and test loaders using the original data
-        train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, batch_size=8)
+        train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, batch_size=2)
 
         # Initialize the model
         print("Initializing model...")

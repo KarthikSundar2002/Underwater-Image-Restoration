@@ -75,39 +75,33 @@ def main():
 
     if not args.evaluate:
         print("Initializing image data manager")
-        dataset_path = "../data/kaggle/larjeck"
-        rawImageDirectory = f"{dataset_path}/uieb-dataset-raw/raw-890"
-        referenceImageDirectory = f"{dataset_path}/uieb-dataset-reference/reference-890"
+        rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
+        referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
 
         dm = dataManager.DataManager()
-        dm.download()
-        # dm.setDownloadedLocations(
-        #     rawDataDirectory=rawImageDirectory,
-        #     remasteredDataDirectory=referenceImageDirectory
-        # )
-        dm.preProcess()
+        #dm.download()
+        dm.setDownloadedLocations(
+            rawDataDirectory=rawImageDirectory,
+            remasteredDataDirectory=referenceImageDirectory
+        )
+        #dm.preProcess()
+        print(dm.currentRawDataDirectory)
+        print(dm.currentReferenceDataDirectory)
         #dm.dataAugment()
         print("Starting training")
         print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
         print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
 
         trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
-        trainer.train()
+        trainer.train(args.max_epoch, args.lr)
     else:
+        #Todo: this is terrible code, need to refactors
         print("Good")
 
         model = mymodel()
         PATH = "best_spectral_transformer.pth"
 
         model.load_state_dict(torch.load(PATH, weights_only=True)["model_state_dict"])
-
-
-        #
-        # model = torch.load(PATH, weights_only=False)
-        #
-        # #model2 = torch.load(PATH)
-        # print(model["model_state_dict"])
-        # #mymodel.load_state_dict(state_dict=model2["model_state_dict"])
 
         fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
         img = cv2.imread(fileToTest)

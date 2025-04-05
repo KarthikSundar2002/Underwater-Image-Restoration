@@ -1,3 +1,5 @@
+import datetime
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -260,7 +262,7 @@ class mymodel(nn.Module):
                  expansion_factor=2.66, ch=[64, 32, 16, 64]):
         super(mymodel, self).__init__()
 
-        self.attention = nn.ModuleList([SFCA(num_ch) for num_ch in ch])
+        #self.attention = nn.ModuleList([SFCA(num_ch) for num_ch in ch])
         self.embed_conv_rgb = nn.Conv2d(3, channels[0], kernel_size=3, padding=1, bias=False)
         self.encoders = nn.ModuleList(
             [nn.Sequential(*[TransformerBlock(num_ch, num_ah, expansion_factor) for _ in range(num_tb)]) for
@@ -305,9 +307,10 @@ class mymodel(nn.Module):
 
         ###-------Decoder------###
         out_dec3 = self.decoders[0](
-            self.reduces1(torch.cat([(self.ups_1(out_enc_rgb4)), self.attention[0](out_enc_rgb3)], dim=1)))
+            self.reduces1(torch.cat([self.ups_1(out_enc_rgb4), out_enc_rgb3], dim=1)))
         out_dec2 = self.decoders[1](
-            self.reduces2(torch.cat([self.ups_2(out_dec3), self.attention[1](out_enc_rgb2)], dim=1)))
-        fd = self.decoders[2](torch.cat([self.ups_3(out_dec2), self.attention[2](out_enc_rgb1)], dim=1))
+            self.reduces2(torch.cat([self.ups_2(out_dec3), out_enc_rgb2], dim=1)))
+        fd = self.decoders[2](torch.cat([self.ups_3(out_dec2), out_enc_rgb1], dim=1))
         fr = self.refinement(fd)
+
         return self.output(self.outputl(fr))
