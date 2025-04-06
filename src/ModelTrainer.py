@@ -85,7 +85,8 @@ class ModelTrainer:
                 outputs = model(raw_imgs)
 
                 # Calculate loss
-                loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                # loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                loss = criterion(outputs, ref_imgs)
 
                 # Backward pass and optimize
                 loss.backward()
@@ -111,7 +112,8 @@ class ModelTrainer:
                     ref_imgs = ref_imgs.to(device)
 
                     outputs = model(raw_imgs)
-                    loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                    # loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                    loss = criterion(outputs, ref_imgs)
                     val_loss += loss.item()
 
 
