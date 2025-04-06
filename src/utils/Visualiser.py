@@ -29,9 +29,9 @@ def ProcessImageUsingModel(device, fileToTest, model, saveName):
     result_numpy = result_hwc.numpy()
     result_numpy = np.clip(result_numpy, 0, 1)
     result_numpy = (result_numpy * 255).astype(np.uint8)
-    plt.imshow(img_array, interpolation='nearest')
-    plt.savefig(f"{saveName}.png")
-    return result_numpy
+    plt.imshow(result_numpy, interpolation='nearest')
+    plt.savefig(f"Images/{saveName}.png")
+    return img_array
 
 
 def loadModelFromWeights(device, pthFileLocation):

@@ -79,9 +79,9 @@ def main():
 
         model = loadModelFromWeights(device, pthFileLocation)
 
-        result_numpy = ProcessImageUsingModel(device, fileToTest, model)
+        imarray = ProcessImageUsingModel(device, fileToTest, model)
 
-        plt.imshow(result_numpy, interpolation='nearest')
+        plt.imshow(imarray, interpolation='nearest')
         plt.savefig("ReferenceImage.png")
 
 
