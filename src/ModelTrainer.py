@@ -64,7 +64,12 @@ class ModelTrainer:
 
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
+        # scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
+        def lambda_rule(epoch):
+            lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
+            return lr_l
+        
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
         # Training loop
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
