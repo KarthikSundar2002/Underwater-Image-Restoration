@@ -295,6 +295,7 @@ class SpectralTransformer(nn.Module):
         self.output1 = nn.Conv2d(16, 8, kernel_size=3, padding=1, bias=False)
 
         self.ups2 = UpSample1(16)
+        #todo: Xander look and make sure this code is ALL correct!!!
         self.outputl = nn.Conv2d(32, 8, kernel_size=3, padding=1, bias=False)
 
     def forward(self, RGB_input):
