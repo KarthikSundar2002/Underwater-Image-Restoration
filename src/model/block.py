@@ -126,21 +126,34 @@ class LinearProjection(nn.Module):
         self.inner_dim = inner_dim
 
     def forward(self, x, attn_kv=None):
+        print(x.shape)
         B, N, C = x.shape
         if attn_kv is None:
             print("attn_kv is None")
             attn_kv = x
+            #kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
             kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+            print(f"kv shape: {kv.shape}")
+            q = self.to_q(x).reshape(B, N, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
         else:
             N_kv = attn_kv.size(1)
-            kv = self.to_kv(attn_kv).reshape(B, N_kv, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
-        print(f"x shape: {x.shape}")
+            #kv = self.to_kv(attn_kv).reshape(B, N_kv, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+            kv = self.to_kv(attn_kv)
+            kv = rearrange(kv, 'n (a b) (nh c) -> n b nh a c', nh = self.heads, b = B)
+            kv = kv.reshape(kv.shape[0], kv.shape[1]*4, kv.shape[2], kv.shape[3]//2, kv.shape[4]//2).contiguous()
+            print(f"kv shape when attn_kv is given: {kv.shape}")
+            q = self.to_q(x).reshape(B*4, N//4, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
 
-        print(f"attn_kv shape: {attn_kv.shape}")
-        q = self.to_q(x).reshape(B, N, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+        # print(f"x shape: {x.shape}")
+        # print(f"kv shape: {kv.shape}")
+        # print(f"attn_kv shape: {attn_kv.shape}")
+      
         
         q = q[0]
-        k, v = kv[0], kv[1] 
+        k, v = kv[0], kv[1]
+        print(f"q shape: {q.shape}")
+        print(f"k shape: {k.shape}")
+        print(f"v shape: {v.shape}") 
         return q,k,v
 
 class Mlp(nn.Module):
@@ -282,8 +295,11 @@ class WindowAttention_Sparse(nn.Module):
             self.win_size[0] * self.win_size[1], self.win_size[0] * self.win_size[1], -1
         ) # Wh * Ww, Wh * Ww, num_heads
         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous() # num_heads, Wh * Ww, Wh * Ww
+        print(f"relative_position_bias shape: {relative_position_bias.shape}")
         ratio = attn.size(-1) // relative_position_bias.size(-1)
         relative_position_bias = repeat(relative_position_bias, 'nH l c -> nH l (c d)', d = ratio)
+        print(f"attn shape: {attn.shape}")
+        print(f"relative_position_bias shape: {relative_position_bias.shape}")
         attn = attn + relative_position_bias.unsqueeze(0)
 
         if mask is not None:
@@ -397,15 +413,14 @@ class MDASSA(nn.Module):
         x = shortcut + self.spatial_drop_path(x)
         x = rearrange(x, 'b (h w) c -> b c h w', h=H, w=W)
         print(f"x shape after spatial attention: {x.shape}")
-        print(f"freq_in shape: {freq_in.shape}")
+        # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
         print(f"freq_q shape: {freq_q.shape}")
         freq_q = rearrange(freq_q, 'b  h w c -> b (h w) c')
         kv = self.conv1x1(x)
-        print(f"kv shape: {kv.shape}")
         kv = rearrange(kv, 'b c h w -> b (h w) c')
+        print(f"kv_shape input to freq_attn: {kv.shape}")
         freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
-        freq_attn = x + self.freq_drop_path(freq_attn)
 
         return freq_attn
     
@@ -425,15 +440,15 @@ class FDFP(nn.Module):
         B, H, W, C = x.shape
         x = rearrange(x, 'b h w c -> b c h w')
         x = self.dwt(x)
-        print(f"x shape after dwt in FDFP: {x.shape}")
+        # print(f"x shape after dwt in FDFP: {x.shape}")
         x = self.conv1(x)
-        print(f"x shape after conv1 in FDFP: {x.shape}")
+        #print(f"x shape after conv1 in FDFP: {x.shape}")
         x = self.act(x)
 
         x = self.conv2(x)
-        print(f"x shape after conv2 in FDFP: {x.shape}")
+        #print(f"x shape after conv2 in FDFP: {x.shape}")
         x = self.idwt(x)
-        print(f"x shape after idwt in FDFP: {x.shape}")
+       # print(f"x shape after idwt in FDFP: {x.shape}")
         x = rearrange(x, 'b c h w -> b h w c')
         
         return x

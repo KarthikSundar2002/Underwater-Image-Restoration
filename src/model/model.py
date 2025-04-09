@@ -57,21 +57,21 @@ class EncoderBlock(nn.Module):
         x = self.norm1(x)
         x = self.mlp(x)
 
-        print(f"Freq_x shape: {freq_x.shape}")
+        # print(f"Freq_x shape: {freq_x.shape}")
         freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H, w=W)
         freq_x = self.dwt(freq_x)
-        print(f"Freq_x after DWT shape: {freq_x.shape}")
+        # print(f"Freq_x after DWT shape: {freq_x.shape}")
         freq_x = rearrange(freq_x,'b c h w -> b (h w) c')
         freq_x = self.freq_mlp(freq_x)
-        print(f"Freq_x after freq_mlp shape: {freq_x.shape}")
+        # print(f"Freq_x after freq_mlp shape: {freq_x.shape}")
         freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H//2, w=W//2)
         freq_x = self.idwt(freq_x)
 
        
         freq_x = rearrange(freq_x,'b c h w -> b (h w) c')
-        print(f"Freq_x after IDWT shape: {freq_x.shape}")
-        print(f"shortcut shape: {shortcut.shape}")
-        print(f"X shape: {x.shape}")
+        # print(f"Freq_x after IDWT shape: {freq_x.shape}")
+        # print(f"shortcut shape: {shortcut.shape}")
+        # print(f"X shape: {x.shape}")
 
         x = shortcut + self.drop_path2(freq_x) +self.drop_path(x)
         return x
@@ -116,14 +116,17 @@ class DecoderBlock(nn.Module):
         B, L, C = x.shape
         H, W = int(math.sqrt(L)), int(math.sqrt(L))
         if enc_out is not None:
-            x = torch.cat((x, enc_out), dim=1)
+            x = torch.cat((x, enc_out), dim=0)
         shortcut = x
         x = self.norm1(x)
         x = self.mdassa(x, mask=None)
+        print(f"dimensions after mdssa: {x.shape}")
         y = x + shortcut
+        
         x = x + shortcut
         x = self.norm2(x)
         x = self.mlp(x)
+        print(f"dimensions after mlp: {x.shape}")
 
         x = y + self.drop_path(x)
         return x
@@ -207,8 +210,9 @@ class MyModel(nn.Module):
         pool3 = self.downsample_3(conv3) # pool3 - (B, L/32, C*16) - B, 16*16, 512
 
         bottleneck = self.bottleneck(pool3)
-
+        print(f"Dimensions after Bottleneck {bottleneck.shape}")
         up3 = self.upsample_3(bottleneck)
+        print(f"Dimensions after upsample: {up3.shape}")
         dec3 = self.decoder_3(up3, enc_out=conv3)
         up2 = self.upsample_2(dec3)
         dec2 = self.decoder_2(up2, enc_out=conv2)
