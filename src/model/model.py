@@ -80,7 +80,7 @@ class EncoderBlock(nn.Module):
 class DecoderBlock(nn.Module):
     def __init__(self, dim, input_resolution, num_heads,win_size=8, shift_size=0,
                  mlp_ratio=4,token_mlp="leff",drop_path=0.0, norm_layer=nn.LayerNorm
-                 , act_layer=nn.GELU, drop=0.0, token_projection="linear", enc_out=True):
+                 , act_layer=nn.GELU, drop=0.0, token_projection="linear", enc_out=True, freq_attn_win_ratio=2):
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
@@ -111,7 +111,7 @@ class DecoderBlock(nn.Module):
 
         self.mdassa = MDASSA(mdssa_dim, num_heads=num_heads, win_size=win_size, shift_size=shift_size,
                             token_projection=token_projection, qkv_bias=True, qk_scale=None,
-                             attn_drop=0., proj_drop=0., norm_layer=norm_layer, enc_out=enc_out)
+                             attn_drop=0., proj_drop=0., norm_layer=norm_layer, enc_out=enc_out, freq_attn_win_ratio=freq_attn_win_ratio)
         
         mlp_hidden_dim = int(mdssa_dim * mlp_ratio)
         if token_mlp == "leff":
@@ -120,11 +120,14 @@ class DecoderBlock(nn.Module):
             self.mlp = FRFN(mdssa_dim, mlp_hidden_dim, act_layer=act_layer, drop=drop)
         else:
             raise ValueError(f"Unknown token_mlp type: {token_mlp}")
+        self.mlp_proj = nn.Linear(mdssa_dim, dim)
 
     def forward(self, x, enc_out=None):
         B, L, C = x.shape
         H, W = int(math.sqrt(L)), int(math.sqrt(L))
         if enc_out is not None:
+            print(f"enc_out shape: {enc_out.shape}")
+            print(f"x shape: {x.shape}")
             x = torch.cat([x, enc_out], dim=2)
             
         shortcut = x
@@ -139,9 +142,22 @@ class DecoderBlock(nn.Module):
         x = x + shortcut
         x = self.norm2(x)
         x = self.mlp(x)
+       
         print(f"dimensions after mlp: {x.shape}")
 
         x = y + self.drop_path(x)
+        x = self.mlp_proj(x)
+        # x = rearrange(x, 'b (h w) c -> b c h w', h=H, w=W)
+        # x = self.conv_proj(x)
+        # x = rearrange(x, 'b c h w -> b (h w) c')
+        # ba,l,ch= x.shape
+        # h = int(math.sqrt(l))
+        # w = int(math.sqrt(l))
+        # x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
+        # x = self.conv_proj(x)
+        # x = rearrange(x, 'b c h w -> b (h w) c')
+
+        print(f"dimensions after conv_proj: {x.shape}")
         return x
         
 class MyModel(nn.Module):
@@ -186,22 +202,22 @@ class MyModel(nn.Module):
         self.decoder_3 = DecoderBlock(dim=embed_dim*8, input_resolution=(self.img_size//8, self.img_size//8),
                                         num_heads=4, win_size=8, shift_size=0,
                                         mlp_ratio=4, token_mlp="leff", drop_path=0.0, norm_layer=nn.LayerNorm,
-                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True)
+                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=2)
         self.upsample_2 = Upsample(embed_dim*8, embed_dim*4)
         self.decoder_2 = DecoderBlock(dim=embed_dim*4, input_resolution=(self.img_size//4, self.img_size//4),
                                         num_heads=4, win_size=8, shift_size=0,
                                         mlp_ratio=4, token_mlp="leff", drop_path=0.0, norm_layer=nn.LayerNorm,
-                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True)
+                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=4)
         self.upsample_1 = Upsample(embed_dim*4, embed_dim*2)
         self.decoder_1 = DecoderBlock(dim=embed_dim*2, input_resolution=(self.img_size//2, self.img_size//2),
                                         num_heads=4, win_size=8, shift_size=0,
                                         mlp_ratio=4, token_mlp="leff", drop_path=0.0, norm_layer=nn.LayerNorm,
-                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True)
+                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=8)
         self.upsample_0 = Upsample(embed_dim*2, embed_dim)
         self.decoder_0 = DecoderBlock(dim=embed_dim, input_resolution=(self.img_size, self.img_size),
                                         num_heads=4, win_size=8, shift_size=0,
                                         mlp_ratio=4, token_mlp="leff", drop_path=0.0, norm_layer=nn.LayerNorm,
-                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True)
+                                        act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=16)
         
         self.output_proj = OutputProjection(in_channels=embed_dim, out_channel=dd_in, kernel_size=3, stride=1, norm_layer=None, act_layer=None)
 
@@ -227,14 +243,20 @@ class MyModel(nn.Module):
         up3 = self.upsample_3(bottleneck)
         print(f"Dimensions after upsample: {up3.shape}")
         dec3 = self.decoder_3(up3, enc_out=conv3)
+        print(f"Dimensions after decoder: {dec3.shape}")
         up2 = self.upsample_2(dec3)
+        print(f"Dimensions after upsample2: {up2.shape}")
         dec2 = self.decoder_2(up2, enc_out=conv2)
+        print(f"Dimensions after decoder2: {dec2.shape}")
         up1 = self.upsample_1(dec2)
+        print(f"Dimensions after upsample1: {up1.shape}")
         dec1 = self.decoder_1(up1, enc_out=conv1)
+        print(f"Dimensions after decoder1: {dec1.shape}")
         up0 = self.upsample_0(dec1)
+        print(f"Dimensions after upsample0: {up0.shape}")
         dec0 = self.decoder_0(up0, enc_out=conv0)
 
         out = self.output_proj(dec0)
-        out = out + x 
+        out = out + x
         return out
 

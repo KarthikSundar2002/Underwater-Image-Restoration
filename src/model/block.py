@@ -126,14 +126,14 @@ class LinearProjection(nn.Module):
         self.inner_dim = inner_dim
 
     def forward(self, x, attn_kv=None):
-        print(x.shape)
+        #print(x.shape)
         B, N, C = x.shape
         if attn_kv is None:
-            print("attn_kv is None")
+            #print("attn_kv is None")
             attn_kv = x
             #kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
             kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
-            print(f"kv shape: {kv.shape}")
+            #print(f"kv shape: {kv.shape}")
             q = self.to_q(x).reshape(B, N, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
         else:
             N_kv = attn_kv.size(1)
@@ -141,7 +141,7 @@ class LinearProjection(nn.Module):
             kv = self.to_kv(attn_kv)
             kv = rearrange(kv, 'n (a b) (nh c) -> n b nh a c', nh = self.heads, b = B)
             kv = kv.reshape(kv.shape[0], kv.shape[1]*4, kv.shape[2], kv.shape[3]//2, kv.shape[4]//2).contiguous()
-            print(f"kv shape when attn_kv is given: {kv.shape}")
+            #print(f"kv shape when attn_kv is given: {kv.shape}")
             q = self.to_q(x).reshape(B*4, N//4, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
 
         # print(f"x shape: {x.shape}")
@@ -151,9 +151,9 @@ class LinearProjection(nn.Module):
         
         q = q[0]
         k, v = kv[0], kv[1]
-        print(f"q shape: {q.shape}")
-        print(f"k shape: {k.shape}")
-        print(f"v shape: {v.shape}") 
+        # print(f"q shape: {q.shape}")
+        # print(f"k shape: {k.shape}")
+        # print(f"v shape: {v.shape}") 
         return q,k,v
 
 class Mlp(nn.Module):
@@ -295,11 +295,11 @@ class WindowAttention_Sparse(nn.Module):
             self.win_size[0] * self.win_size[1], self.win_size[0] * self.win_size[1], -1
         ) # Wh * Ww, Wh * Ww, num_heads
         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous() # num_heads, Wh * Ww, Wh * Ww
-        print(f"relative_position_bias shape: {relative_position_bias.shape}")
+        #print(f"relative_position_bias shape: {relative_position_bias.shape}")
         ratio = attn.size(-1) // relative_position_bias.size(-1)
         relative_position_bias = repeat(relative_position_bias, 'nH l c -> nH l (c d)', d = ratio)
-        print(f"attn shape: {attn.shape}")
-        print(f"relative_position_bias shape: {relative_position_bias.shape}")
+        #print(f"attn shape: {attn.shape}")
+        #print(f"relative_position_bias shape: {relative_position_bias.shape}")
         attn = attn + relative_position_bias.unsqueeze(0)
 
         if mask is not None:
@@ -328,7 +328,7 @@ class WindowAttention_Sparse(nn.Module):
 
     
 class MDASSA(nn.Module):
-    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True):    
+    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True, freq_attn_win_ratio=2):    
         super().__init__()
         self.dim = dim
         self.win_size = win_size
@@ -349,7 +349,7 @@ class MDASSA(nn.Module):
         self.fdfp = FDFP(dim, dim*2, act_layer=act_layer)
         
         self.enc_out = enc_out
-        freq_attn_win_size = win_size * 2 if enc_out else win_size
+        freq_attn_win_size = win_size * freq_attn_win_ratio if enc_out else win_size
 
         self.freq_attn = WindowAttention_Sparse(
             dim, win_size=to_2tuple(freq_attn_win_size),
@@ -361,7 +361,7 @@ class MDASSA(nn.Module):
         
     def forward(self, x, mask=None):
         B, L, C = x.shape
-        print(f"x shape before spatial attention: {x.shape}")
+        #print(f"x shape before spatial attention: {x.shape}")
         H = W = int(math.sqrt(L))
 
         if mask != None:
@@ -418,14 +418,14 @@ class MDASSA(nn.Module):
         
         x = shortcut + self.spatial_drop_path(x)
         x = rearrange(x, 'b (h w) c -> b c h w', h=H, w=W)
-        print(f"x shape after spatial attention: {x.shape}")
+        #print(f"x shape after spatial attention: {x.shape}")
         # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
-        print(f"freq_q shape: {freq_q.shape}")
+        #print(f"freq_q shape: {freq_q.shape}")
         freq_q = rearrange(freq_q, 'b  h w c -> b (h w) c')
         kv = self.conv1x1(x)
         kv = rearrange(kv, 'b c h w -> b (h w) c')
-        print(f"kv_shape input to freq_attn: {kv.shape}")
+        #print(f"kv_shape input to freq_attn: {kv.shape}")
         freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
         return freq_attn
     
