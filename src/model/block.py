@@ -352,7 +352,7 @@ class MDASSA(nn.Module):
         freq_attn_win_size = win_size * freq_attn_win_ratio if enc_out else win_size
 
         self.freq_attn = WindowAttention_Sparse(
-            dim, win_size=to_2tuple(freq_attn_win_size),
+            dim, win_size=to_2tuple(win_size),
             num_heads=num_heads, token_projection=token_projection, qkv_bias=qkv_bias, 
             qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=proj_drop)
         
@@ -421,10 +421,23 @@ class MDASSA(nn.Module):
         #print(f"x shape after spatial attention: {x.shape}")
         # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
+        
+
         #print(f"freq_q shape: {freq_q.shape}")
-        freq_q = rearrange(freq_q, 'b  h w c -> b (h w) c')
+        # freq_q = rearrange(freq_q, 'b h w c -> b (h w) c')
         kv = self.conv1x1(x)
-        kv = rearrange(kv, 'b c h w -> b (h w) c')
+        # kv = rearrange(kv, 'b c h w -> b (h w) c')
+        if self.shift_size > 0:
+            shifted_freq_q = torch.roll(freq_q, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_kv = torch.roll(kv, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+        else:
+            shifted_freq_q = freq_q
+            shifted_kv = kv
+        
+        freq_q_windows = window_partition(shifted_freq_q, self.win_size)
+        kv_windows = window_partition(shifted_kv, self.win_size)
+
+        freq_attn_windows = self.freq_attn(freq_q_windows, attn_kv=kv_windows, mask=None)
         #print(f"kv_shape input to freq_attn: {kv.shape}")
         freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
         return freq_attn
