@@ -251,18 +251,18 @@ class WindowAttention_Sparse(nn.Module):
         # Relative Positional Encoding
         self.relative_position_bias_table = nn.Parameter(
             torch.zeros((2 * win_size[0] - 1) * (2 * win_size[1] - 1), num_heads)
-        )
+        ) # 2Wh-1 * 2Ww-1, nH  -> 225, nH
 
 
-        coords_h = torch.arange(self.win_size[0])
-        coords_w = torch.arange(self.win_size[1])
-        coords = torch.stack(torch.meshgrid([coords_h, coords_w]))
-        coords_flatten = torch.flatten(coords, 1)
-        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
-        relative_coords = relative_coords.permute(1,2,0).contiguous()
+        coords_h = torch.arange(self.win_size[0]) 
+        coords_w = torch.arange(self.win_size[1]) 
+        coords = torch.stack(torch.meshgrid([coords_h, coords_w])) # # 2, Wh, Ww
+        coords_flatten = torch.flatten(coords, 1) # 2, Wh*Ww
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :] # 2, Wh*Ww, Wh*Ww
+        relative_coords = relative_coords.permute(1,2,0).contiguous() # Wh*Ww, Wh*Ww, 2
         relative_coords[:, :, 0] += self.win_size[0] - 1
-        relative_coords[:, :, 1] += self.win_size[1] - 1
-        relative_coords[:, :, 0] *= 2 * self.win_size[1] - 1
+        relative_coords[:, :, 1] += self.win_size[1] - 1 
+        relative_coords[:, :, 0] *= 2 * self.win_size[1] - 1 
         relative_position_index = relative_coords.sum(-1)
         self.register_buffer("relative_position_index", relative_position_index)
 
@@ -328,7 +328,7 @@ class WindowAttention_Sparse(nn.Module):
 
     
 class MDASSA(nn.Module):
-    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU):    
+    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True):    
         super().__init__()
         self.dim = dim
         self.win_size = win_size
@@ -347,8 +347,12 @@ class MDASSA(nn.Module):
         
         self.conv1x1 = nn.Conv2d(dim, dim*2, kernel_size=1, stride=1, padding=0)
         self.fdfp = FDFP(dim, dim*2, act_layer=act_layer)
+        
+        self.enc_out = enc_out
+        freq_attn_win_size = win_size * 2 if enc_out else win_size
+
         self.freq_attn = WindowAttention_Sparse(
-            dim, win_size=to_2tuple(win_size),
+            dim, win_size=to_2tuple(freq_attn_win_size),
             num_heads=num_heads, token_projection=token_projection, qkv_bias=qkv_bias, 
             qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=proj_drop)
         
@@ -357,6 +361,7 @@ class MDASSA(nn.Module):
         
     def forward(self, x, mask=None):
         B, L, C = x.shape
+        print(f"x shape before spatial attention: {x.shape}")
         H = W = int(math.sqrt(L))
 
         if mask != None:
@@ -410,6 +415,7 @@ class MDASSA(nn.Module):
             x = shifted_x
         
         x = x.view(B, H * W, C)
+        
         x = shortcut + self.spatial_drop_path(x)
         x = rearrange(x, 'b (h w) c -> b c h w', h=H, w=W)
         print(f"x shape after spatial attention: {x.shape}")
@@ -421,7 +427,6 @@ class MDASSA(nn.Module):
         kv = rearrange(kv, 'b c h w -> b (h w) c')
         print(f"kv_shape input to freq_attn: {kv.shape}")
         freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
-
         return freq_attn
     
 
