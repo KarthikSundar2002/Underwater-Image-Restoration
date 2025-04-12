@@ -16,6 +16,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import time
 from tqdm import tqdm
 
+from src.utils import wandb_logger
 from src.utils.Visualiser import ProcessImageUsingModel
 
 
@@ -55,7 +56,7 @@ class ModelTrainer:
             name=arch,
         )
         model = model.to(device)
-
+        wandb_logger.watch_model(model)
         # Define loss function and optimizer
         gradient_loss = Gradient_Loss().to(device)
         charbonnier_loss = CharbonnierLoss().to(device)
@@ -65,6 +66,8 @@ class ModelTrainer:
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         # scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
+
+        wandb_logger.watch_model(model)
         def lambda_rule(epoch):
             lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
             return lr_l
@@ -104,6 +107,14 @@ class ModelTrainer:
                 if (i + 1) % 1 == 0:
                     print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss:.6f}")
 
+                metrics = wandb_logger.format_train_metrics(
+                    loss,
+                    optimizer.param_groups[0]["lr"],
+
+                )
+                wandb_logger.log_train_metrics(metrics, epoch, i, len(train_loader))
+
+
             avg_epoch_loss = epoch_loss / len(train_loader)
             epoch_time = time.time() - start_time
             print(f"Epoch {epoch + 1}/{num_epochs} completed in {epoch_time:.2f}s, Avg Loss: {avg_epoch_loss:.6f}")
@@ -121,10 +132,14 @@ class ModelTrainer:
                     # loss = criterion(outputs, ref_imgs)
                     val_loss += loss
 
-
+            metrics = wandb_logger.format_test_metrics(val_loss)
+            wandb_logger.log_test_metrics(metrics)
 
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")
+            metrics = wandb_logger.format_test_metrics(avg_val_loss)
+            wandb_logger.log_test_metrics(metrics)
+
             fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
 
             # Save model if it's the best so far
@@ -149,6 +164,8 @@ class ModelTrainer:
                 ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}")
 
         print("Training completed!")
+        wandb_logger.finish()
+
         return model
 
 
