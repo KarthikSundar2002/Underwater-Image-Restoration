@@ -140,7 +140,7 @@ class ModelTrainer:
             metrics = wandb_logger.format_test_metrics(avg_val_loss)
             wandb_logger.log_test_metrics(metrics)
 
-            fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+            fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
 
             # Save model if it's the best so far
             if avg_val_loss < best_loss:
