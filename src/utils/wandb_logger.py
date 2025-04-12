@@ -49,7 +49,7 @@ class WandBLogger:
     def log_train_metrics(self, metrics, epoch, batch_idx, trainloader_len):
         """Log training metrics with step based on epoch and batch index"""
         if self.enabled:
-            step = epoch + (batch_idx / trainloader_len)
+            step = epoch * trainloader_len + batch_idx
             wandb.log(metrics, step=step)
     
     def log_test_metrics(self, metrics):
