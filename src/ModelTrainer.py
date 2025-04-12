@@ -98,11 +98,11 @@ class ModelTrainer:
                 optimizer.step()
                 scheduler.step()
 
-                epoch_loss += loss.item()
+                epoch_loss += loss
 
                 # Print progress every 10 batches
                 if (i + 1) % 1 == 0:
-                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}")
+                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss:.6f}")
 
             avg_epoch_loss = epoch_loss / len(train_loader)
             epoch_time = time.time() - start_time
@@ -119,7 +119,7 @@ class ModelTrainer:
                     outputs = model(raw_imgs)
                     loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
                     # loss = criterion(outputs, ref_imgs)
-                    val_loss += loss.item()
+                    val_loss += loss
 
 
 
