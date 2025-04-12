@@ -8,7 +8,9 @@ from src.Models import SpectralTransformer
 
 def ProcessImageUsingModel(device, fileToTest, model, saveName):
     img = cv2.imread(fileToTest)
-    img_array = np.array(img)
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    img_array = np.array(rgb)
     input_tensor = torch.from_numpy(img_array)
     input_tensor = input_tensor.permute(2, 0, 1)
     input_tensor = input_tensor.unsqueeze(0)
@@ -29,7 +31,6 @@ def ProcessImageUsingModel(device, fileToTest, model, saveName):
     result_numpy = result_hwc.numpy()
     result_numpy = np.clip(result_numpy, 0, 1)
     result_numpy = (result_numpy * 255).astype(np.uint8)
-    rgb = cv2.cvtColor(result_numpy, cv2.COLOR_BGR2RGB)
 
     plt.imshow(rgb, interpolation='nearest',cmap = plt.cm.Spectral)
     plt.savefig(f"Images/{saveName}.png")
