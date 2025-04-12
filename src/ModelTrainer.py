@@ -98,8 +98,17 @@ class ModelTrainer:
                     loss = criterion(outputs, ref_imgs)
                     incremental_loss = loss.item()
                 # Calculate loss
-                else:
-                    loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                elif args.lossf == "charbonnier":
+                    loss = charbonnier_loss(outputs, ref_imgs)
+                    incremental_loss = loss
+                elif args.lossf == "perceptual":
+                    loss = perceptual_loss(outputs, ref_imgs)
+                    incremental_loss = loss
+                elif args.lossf == "gradient":
+                    loss = gradient_loss(outputs, ref_imgs)
+                    incremental_loss = loss
+                elif args.lossf == "mix":
+                    loss = 0.03*charbonnier_loss(outputs,ref_imgs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
                     incremental_loss = loss
 
                 # Backward pass and optimize
