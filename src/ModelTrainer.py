@@ -57,6 +57,7 @@ class ModelTrainer:
         )
         model = model.to(device)
         wandb_logger.watch_model(model)
+
         # Define loss function and optimizer
         gradient_loss = Gradient_Loss().to(device)
         charbonnier_loss = CharbonnierLoss().to(device)
@@ -83,7 +84,7 @@ class ModelTrainer:
             start_time = time.time()
 
             # Training phase
-            for i, (raw_imgs, ref_imgs) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}",mininterval=10)):
+            for i, (raw_imgs, ref_imgs) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}")):
                 # Move data to device
                 raw_imgs = raw_imgs.to(device)
                 ref_imgs = ref_imgs.to(device)
@@ -92,23 +93,28 @@ class ModelTrainer:
                 optimizer.zero_grad()
                 outputs = model(raw_imgs)
 
+                incremental_loss = 0
+                if args.lossf == "L1":
+                    loss = criterion(outputs, ref_imgs)
+                    incremental_loss = loss.item()
                 # Calculate loss
-                #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-                loss = criterion(outputs, ref_imgs)
+                else:
+                    loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                    incremental_loss = loss
 
                 # Backward pass and optimize
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
 
-                epoch_loss += loss.item()
+                epoch_loss += incremental_loss
 
                 # Print progress every 10 batches
                 if (i + 1) % 1 == 0:
-                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}")
+                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {incremental_loss:.6f}")
 
                 metrics = wandb_logger.format_train_metrics(
-                    loss.item(),
+                    incremental_loss,
                     optimizer.param_groups[0]["lr"],
 
                 )
@@ -130,7 +136,7 @@ class ModelTrainer:
                     outputs = model(raw_imgs)
                     #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
                     loss = criterion(outputs, ref_imgs)
-                    val_loss += loss.item()
+                    val_loss += incremental_loss
 
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")
