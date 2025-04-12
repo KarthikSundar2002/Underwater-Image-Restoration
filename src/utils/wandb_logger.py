@@ -60,25 +60,20 @@ class WandBLogger:
             wandb.log(metrics)
     
     def format_train_metrics(
-        self, xent_loss, htri_loss, accuracy, learning_rate, lambda_xent, lambda_htri
+        self, loss, learning_rate
     ):
         """Format training metrics for logging"""
         return {
-            "train/xent_loss": xent_loss,
-            "train/htri_loss": htri_loss,
-            "train/total_loss": xent_loss * lambda_xent + htri_loss * lambda_htri,
-            "train/accuracy": accuracy,
+            "train/loss": loss,
+
             "train/learning_rate": learning_rate,
         }
     
-    def format_test_metrics(self, mAP, cmc):
+    def format_test_metrics(self, loss):
         """Format test metrics for logging"""
         return {
-            "test/mAP": mAP * 100,
-            "test/rank1": cmc[0] * 100,
-            "test/rank5": cmc[4] * 100,
-            "test/rank10": cmc[9] * 100,
-            "test/rank20": cmc[19] * 100,
+            "test/loss": loss,
+
         }
 
     def log_model_artifact(self, checkpoint_path, name=None):
