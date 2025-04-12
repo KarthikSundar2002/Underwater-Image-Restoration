@@ -132,9 +132,6 @@ class ModelTrainer:
                     # loss = criterion(outputs, ref_imgs)
                     val_loss += loss
 
-            metrics = wandb_logger.format_test_metrics(val_loss)
-            wandb_logger.log_test_metrics(metrics)
-
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")
             metrics = wandb_logger.format_test_metrics(avg_val_loss,epoch_time)
