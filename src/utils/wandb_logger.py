@@ -6,9 +6,7 @@ from dotenv import load_dotenv
 
 class WandBLogger:
     def __init__(self, args=None):
-        self.enabled = (
-                args is not None and hasattr(args, "use_wandb") and args.use_wandb
-        )
+        self.enabled = True
         self.args = args
         
         if self.enabled and not args.evaluate:

@@ -26,7 +26,7 @@ class ModelTrainer:
         self.referenceDir = referenceDirectory
 
 
-    def train(self, arch="SpectroFormer", num_epochs=10, learning_rate=0.001, device="cuda" if torch.cuda.is_available() else "cpu"):
+    def train(self, args, arch="SpectroFormer", num_epochs=10, learning_rate=0.001, device="cuda" if torch.cuda.is_available() else "cpu"):
         """
         Train the Spectral Transformer model on UIEB dataset
 
@@ -35,7 +35,7 @@ class ModelTrainer:
             learning_rate (float): Learning rate for optimizer
             device (str): Device to run training on ('cuda' or 'cpu')
         """
-        wandb_logger = WandBLogger()
+        wandb_logger = WandBLogger(args)
         # Set device
         print(f"Using device: {device}")
 
@@ -56,7 +56,7 @@ class ModelTrainer:
             name=arch,
         )
         model = model.to(device)
-        wandb_logger.watch_model(model=model)
+        wandb_logger.watch_model(model)
         # Define loss function and optimizer
         gradient_loss = Gradient_Loss().to(device)
         charbonnier_loss = CharbonnierLoss().to(device)

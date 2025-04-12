@@ -16,14 +16,13 @@ from matplotlib import pyplot as plt
 
 from src.utils.Visualiser import loadModelFromWeights, ProcessImageUsingModel
 from src.utils.loggers import Logger
-from src.utils.wandb_logger import WandBLogger
 import src.DataManipulation.DataManager as dataManager
 
 parser = argument_parser()
 args = parser.parse_args()
 
 def main():
-    global args, wandb_logger
+    global args
     print(args.evaluate)
 
     if not args.use_avai_gpus:
@@ -41,8 +40,6 @@ def main():
     print("Start time:{}".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
     print("==========")
     print(f"==========\nArgs:{args}\n==========")
-
-    wandb_logger = WandBLogger(args)
 
     if use_gpu:
         print(f"Currently using GPU {args.gpu_devices}")
@@ -70,7 +67,7 @@ def main():
         print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
 
         trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
-        trainer.train(args.arch ,args.max_epoch, args.lr)
+        trainer.train(args, args.arch ,args.max_epoch, args.lr)
     else:
         pthFileLocation = "best_spectral_transformer.pth"
         fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
