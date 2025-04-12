@@ -141,6 +141,7 @@ class LinearProjection(nn.Module):
             kv = self.to_kv(attn_kv)
             kv = rearrange(kv, 'n (a b) (nh c) -> n b nh a c', nh = self.heads, b = B)
             kv = kv.reshape(kv.shape[0], kv.shape[1]*4, kv.shape[2], kv.shape[3]//2, kv.shape[4]//2).contiguous()
+            # kv = self.to_kv(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
             #print(f"kv shape when attn_kv is given: {kv.shape}")
             q = self.to_q(x).reshape(B*4, N//4, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
 
@@ -288,6 +289,9 @@ class WindowAttention_Sparse(nn.Module):
     def forward(self, x, attn_kv=None, mask=None):
         B_, N, C = x.shape
         q,k,v = self.to_qkv(x, attn_kv)
+        print(f"q shape: {q.shape}")
+        print(f"k shape: {k.shape}")
+        print(f"v shape: {v.shape}")
         q = q * self.scale
         attn = (q @ k.transpose(-2, -1))
 
@@ -421,25 +425,45 @@ class MDASSA(nn.Module):
         #print(f"x shape after spatial attention: {x.shape}")
         # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
-        
+        print(f"freq_q shape after fdfp: {freq_q.shape}")
 
         #print(f"freq_q shape: {freq_q.shape}")
         # freq_q = rearrange(freq_q, 'b h w c -> b (h w) c')
         kv = self.conv1x1(x)
+        print(f"kv shape: {kv.shape}")
+        kv = rearrange(kv, 'b c h w -> b h w c')
+        k,v = kv.chunk(2, dim=3)
+        print(f"k shape: {k.shape}")
+        print(f"v shape: {v.shape}")
         # kv = rearrange(kv, 'b c h w -> b (h w) c')
         if self.shift_size > 0:
             shifted_freq_q = torch.roll(freq_q, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
-            shifted_kv = torch.roll(kv, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_k = torch.roll(k, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_v = torch.roll(v, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
         else:
             shifted_freq_q = freq_q
-            shifted_kv = kv
+            shifted_k = k
+            shifted_v = v
         
         freq_q_windows = window_partition(shifted_freq_q, self.win_size)
-        kv_windows = window_partition(shifted_kv, self.win_size)
-
+        k_windows = window_partition(shifted_k, self.win_size)
+        v_windows = window_partition(shifted_v, self.win_size)
+        kv_windows = torch.cat((k_windows, v_windows), dim=-1)
+        print(f"freq_q_windows shape: {freq_q_windows.shape}")
+        print(f"kv_windows shape: {kv_windows.shape}")
+        freq_q_windows = rearrange(freq_q_windows, 'b h w c -> b (h w) c', h=self.win_size, w=self.win_size)
+        kv_windows = rearrange(kv_windows, 'b h w c -> b (h w) c', h=self.win_size, w=self.win_size)
         freq_attn_windows = self.freq_attn(freq_q_windows, attn_kv=kv_windows, mask=None)
-        #print(f"kv_shape input to freq_attn: {kv.shape}")
-        freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
+
+        freq_attn_windows = freq_attn_windows.view(-1, self.win_size, self.win_size, C)
+        shifted_freq_attn = window_reverse(freq_attn_windows, self.win_size, H, W)
+
+        if self.shift_size > 0:
+            freq_attn = torch.roll(shifted_freq_attn, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
+        else:
+            freq_attn = shifted_freq_attn
+        # #print(f"kv_shape input to freq_attn: {kv.shape}")
+        # freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
         return freq_attn
     
 
