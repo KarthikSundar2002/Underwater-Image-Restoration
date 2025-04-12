@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import time
 from tqdm import tqdm
 
-from src.utils import wandb_logger
+from src.utils.wandb_logger import WandBLogger
 from src.utils.Visualiser import ProcessImageUsingModel
 
 
@@ -35,7 +35,7 @@ class ModelTrainer:
             learning_rate (float): Learning rate for optimizer
             device (str): Device to run training on ('cuda' or 'cpu')
         """
-
+        wandb_logger = WandBLogger()
         # Set device
         print(f"Using device: {device}")
 
@@ -56,7 +56,7 @@ class ModelTrainer:
             name=arch,
         )
         model = model.to(device)
-        wandb_logger.watch_model(model)
+        wandb_logger.watch_model(model=model)
         # Define loss function and optimizer
         gradient_loss = Gradient_Loss().to(device)
         charbonnier_loss = CharbonnierLoss().to(device)
