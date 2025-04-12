@@ -28,12 +28,34 @@ class DWT_function(torch.autograd.Function):
     def backward(ctx, dx):
         if ctx.needs_input_grad[0]:
             w_ll, w_lh, w_hl, w_hh = ctx.saved_tensors
+            print(f"w_ll shape: {w_ll.shape}")
+            print(f"w_lh shape: {w_lh.shape}")
+            print(f"w_hl shape: {w_hl.shape}")
+            print(f"w_hh shape: {w_hh.shape}")
+            print(f"ctx shape: {ctx.shape}")
             B,C,H,W = ctx.shape
-            dx = dx.view(B, 4, -1, H//2, W//2)
+            # w_ll = w_ll.expand(C//4, C, a, b)
+            # w_lh = w_lh.expand(C//4, C, a, b)
+            # w_hl = w_hl.expand(C//4, C, a, b)
+            # w_hh = w_hh.expand(C//4, C, a, b)
+            # dx = dx.view(B, 4, -1, H//2, W//2)
+            dx = rearrange(dx, 'b (n c) h w -> b c n h w', n = 4)
+            dx = dx.reshape(B, -1, H//2, W//2)
+            # dx = dx.transpose(1,2).reshape(B, -1, H//2, W//2)
+            filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=0)
+            print(f"filters shape in DWT Backward Pass: {filters.shape}")
+            # dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=1)
+            # dx = rearrange(dx, 'b (n c) h w -> b c n h w', n = 4)
+        
+            # C = dx.shape[1]
+            # dx = rearrange(dx, 'b c n h w -> b (n c) h w')
+            
+            # filters = filters.reshape(-1, 4, 2, 2)
+            print(f"dx shape after rearrange: {dx.shape}")
+            # filters = filters.expand(dim, 4, 2, 2)
+            print(f"filters shape after rearrange: {filters.shape}")
 
-            dx = dx.transpose(1,2).reshape(B, -1, H//2, W//2)
-            filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=1)
-            dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=1)
+            dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=2)
 
         return dx, None, None, None, None
 
@@ -45,7 +67,7 @@ class IDWT_function(torch.autograd.Function):
         
 
         B, C, H, W = x.shape
-        # print(f"IDWT input shape: {x.shape}")
+         # print(f"IDWT input shape: {x.shape}")
         x = rearrange(x, 'b (n c) h w -> b c n h w', n = 4)
         
         C = x.shape[1]
@@ -63,13 +85,39 @@ class IDWT_function(torch.autograd.Function):
         if ctx.needs_input_grad[0]:
             filters = ctx.saved_tensors
             filters = filters[0]
+            a = filters.shape[1]
+            b = filters.shape[2]
             B, C, H, W = ctx.shape
+            print(f"IDWT ctx shape: {ctx.shape}")
             C = C // 4
             dx = dx.contiguous()
+            print(f"IDWT dx shape: {dx.shape}")
             C = dx.shape[1]
             dx = dx.reshape(B, -1, H//2, W//2)
-            filters = filters.expand(C, 1, 1, 1)
-            dx = torch.nn.functional.conv2d(dx, filters, stride=2, groups=C)
+            dim = dx.shape[1]
+            print(f"IDWT dx shape after reshape: {dx.shape}")
+            # dxw_ll, dxw_lh, dxw_hl, dxw_hh = dx.chunk(4, dim=1)
+            w_ll = filters[0]
+            w_lh = filters[1]
+            w_hl = filters[2]
+            w_hh = filters[3]
+            w_ll = w_ll.expand(dim//4, dim, a, b)
+            w_lh = w_lh.expand(dim//4, dim, a, b)
+            w_hl = w_hl.expand(dim//4, dim, a, b)
+            w_hh = w_hh.expand(dim//4, dim, a, b)
+            
+            dx_ll = F.conv2d(dx,w_ll, stride = 2)
+            dx_lh = F.conv2d(dx,w_lh, stride = 2)
+            dx_hl = F.conv2d(dx,w_hl, stride = 2)
+            dx_hh = F.conv2d(dx,w_hh,stride = 2)
+            dx_ll = dx_ll.reshape(B, -1, H, W)
+            dx_lh = dx_lh.reshape(B, -1, H, W)
+            dx_hl = dx_hl.reshape(B, -1, H, W)
+            dx_hh = dx_hh.reshape(B, -1, H, W)
+            dx = torch.cat((dx_ll, dx_lh, dx_hl, dx_hh), dim=1)
+
+            # filters = filters.expand(C, dx.shape[1]//(C*4), a, b)
+            # dx = torch.nn.functional.conv2d(dx, filters, stride=2, groups=C)
         return dx, None
 
 class DWT_2D(nn.Module):
@@ -128,6 +176,7 @@ class IDWT_2D(nn.Module):
         # w_hh = w_hh
 
         filters = torch.stack([w_ll, w_lh, w_hl, w_hh], dim=0)
+        print(f"IDWT filters shape: {filters.shape}")
         self.register_buffer('filters', filters)
         self.filters = self.filters.to(dtype=torch.float32)
     

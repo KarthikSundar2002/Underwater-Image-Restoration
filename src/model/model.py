@@ -126,24 +126,25 @@ class DecoderBlock(nn.Module):
         B, L, C = x.shape
         H, W = int(math.sqrt(L)), int(math.sqrt(L))
         if enc_out is not None:
-            print(f"enc_out shape: {enc_out.shape}")
-            print(f"x shape: {x.shape}")
+            #print(f"enc_out shape: {enc_out.shape}")
+            #print(f"x shape: {x.shape}")
             x = torch.cat([x, enc_out], dim=2)
             
         shortcut = x
-        print(f"self.enc_out: {self.enc_out}")
+        #print(f"self.enc_out: {self.enc_out}")
 
         x = self.norm1(x)
-        print(f"dimensions before mdssa: {x.shape}")
+        #print(f"dimensions before mdssa: {x.shape}")
         x = self.mdassa(x, mask=None)
-        print(f"dimensions after mdssa: {x.shape}")
+        #print(f"dimensions after mdssa: {x.shape}")
+        x = rearrange(x, 'b h w c -> b (h w) c')
         y = x + shortcut
         
         x = x + shortcut
         x = self.norm2(x)
         x = self.mlp(x)
        
-        print(f"dimensions after mlp: {x.shape}")
+        #print(f"dimensions after mlp: {x.shape}")
 
         x = y + self.drop_path(x)
         x = self.mlp_proj(x)
@@ -157,7 +158,7 @@ class DecoderBlock(nn.Module):
         # x = self.conv_proj(x)
         # x = rearrange(x, 'b c h w -> b (h w) c')
 
-        print(f"dimensions after conv_proj: {x.shape}")
+        #print(f"dimensions after conv_proj: {x.shape}")
         return x
         
 class MyModel(nn.Module):
