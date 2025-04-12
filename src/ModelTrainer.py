@@ -138,9 +138,9 @@ class ModelTrainer:
             wandb_logger.log_test_metrics(metrics)
 
             fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
-
+            best_loss_epoch = avg_val_loss < best_loss
             # Save model if it's the best so far
-            if avg_val_loss < best_loss:
+            if best_loss_epoch:
                 best_loss = avg_val_loss
                 torch.save({
                     'epoch': epoch,
@@ -158,7 +158,7 @@ class ModelTrainer:
                     'loss': avg_val_loss,
                 }, 'latest_spectroformer.pth')
             with torch.no_grad():
-                ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best  {avg_val_loss < best_loss}")
+                ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best  {best_loss_epoch}")
 
         print("Training completed!")
         wandb_logger.finish()
