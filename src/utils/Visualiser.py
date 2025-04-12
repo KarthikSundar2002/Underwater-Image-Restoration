@@ -29,7 +29,9 @@ def ProcessImageUsingModel(device, fileToTest, model, saveName):
     result_numpy = result_hwc.numpy()
     result_numpy = np.clip(result_numpy, 0, 1)
     result_numpy = (result_numpy * 255).astype(np.uint8)
-    plt.imshow(result_numpy, interpolation='nearest')
+    rgb = cv2.cvtColor(result_numpy, cv2.COLOR_BGR2RGB)
+
+    plt.imshow(rgb, interpolation='nearest',cmap = plt.cm.Spectral)
     plt.savefig(f"Images/{saveName}.png")
     return img_array
 
