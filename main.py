@@ -80,9 +80,8 @@ def main():
         model = loadModelFromWeights(device, pthFileLocation)
 
         imarray = ProcessImageUsingModel(device, fileToTest, model)
-        rgb = cv2.cvtColor(imarray, cv2.COLOR_BGR2RGB)
 
-        plt.imshow(rgb, interpolation='nearest', cmap = plt.cm.Spectral)
+        plt.imshow(imarray, interpolation='nearest', cmap = plt.cm.Spectral)
         plt.savefig("ReferenceImage.png")
 
 
