@@ -137,7 +137,7 @@ class ModelTrainer:
 
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")
-            metrics = wandb_logger.format_test_metrics(avg_val_loss)
+            metrics = wandb_logger.format_test_metrics(avg_val_loss,epoch_time)
             wandb_logger.log_test_metrics(metrics)
 
             fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
@@ -161,7 +161,7 @@ class ModelTrainer:
                     'loss': avg_val_loss,
                 }, 'latest_spectroformer.pth')
             with torch.no_grad():
-                ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}")
+                ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best  {avg_val_loss < best_loss}")
 
         print("Training completed!")
         wandb_logger.finish()

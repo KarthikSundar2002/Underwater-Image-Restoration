@@ -67,10 +67,11 @@ class WandBLogger:
             "train/learning_rate": learning_rate,
         }
     
-    def format_test_metrics(self, loss):
+    def format_test_metrics(self, loss, epoch_time):
         """Format test metrics for logging"""
         return {
             "test/loss": loss,
+            "test/epochTime": epoch_time,
 
         }
 
