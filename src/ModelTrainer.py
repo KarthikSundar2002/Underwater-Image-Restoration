@@ -48,7 +48,7 @@ class ModelTrainer:
         #                           "augmented_remastered")
 
         # Get train and test loaders using the original data
-        train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, batch_size=2)
+        train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, args.train_batch_size)
 
         # Initialize the model
         print("Initializing model...")
@@ -83,7 +83,7 @@ class ModelTrainer:
             start_time = time.time()
 
             # Training phase
-            for i, (raw_imgs, ref_imgs) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}")):
+            for i, (raw_imgs, ref_imgs) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}",mininterval=10)):
                 # Move data to device
                 raw_imgs = raw_imgs.to(device)
                 ref_imgs = ref_imgs.to(device)
@@ -93,22 +93,22 @@ class ModelTrainer:
                 outputs = model(raw_imgs)
 
                 # Calculate loss
-                loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-                #loss = criterion(outputs, ref_imgs)
+                #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                loss = criterion(outputs, ref_imgs)
 
                 # Backward pass and optimize
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
 
-                epoch_loss += loss
+                epoch_loss += loss.item()
 
                 # Print progress every 10 batches
                 if (i + 1) % 1 == 0:
-                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss:.6f}")
+                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}")
 
                 metrics = wandb_logger.format_train_metrics(
-                    loss,
+                    loss.item(),
                     optimizer.param_groups[0]["lr"],
 
                 )
@@ -128,9 +128,9 @@ class ModelTrainer:
                     ref_imgs = ref_imgs.to(device)
 
                     outputs = model(raw_imgs)
-                    loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-                    # loss = criterion(outputs, ref_imgs)
-                    val_loss += loss
+                    #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                    loss = criterion(outputs, ref_imgs)
+                    val_loss += loss.item()
 
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")
@@ -151,14 +151,16 @@ class ModelTrainer:
                 print(f"Model saved with loss: {best_loss:.6f}")
                 with torch.no_grad():
                     ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
+                    ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best True")
 
-            torch.save({'epoch': epoch,
+            else:
+                torch.save({'epoch': epoch,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': avg_val_loss,
                 }, 'latest_spectroformer.pth')
-            with torch.no_grad():
-                ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best  {best_loss_epoch}")
+                with torch.no_grad():
+                    ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best False")
 
         print("Training completed!")
         wandb_logger.finish()
@@ -166,7 +168,7 @@ class ModelTrainer:
         return model
 
 
-    def evaluate(self, model_path='best_spectral_transformer.pth',
+    def evaluate(self, args, model_path='best_spectral_transformer.pth',
                  device="cuda" if torch.cuda.is_available() else "cpu"):
         """
         Evaluate the trained model on the test dataset
@@ -182,7 +184,7 @@ class ModelTrainer:
         import matplotlib.pyplot as plt
 
         # Get test dataloader
-        _, test_loader = get_dataloaders(self.rawDataDirectory, self.remasteredDataDirectory, batch_size=1)
+        _, test_loader = get_dataloaders(self.rawDataDirectory, self.remasteredDataDirectory, args.test_batch_size)
 
         # Load model
         model = SpectralTransformer().to(device)
