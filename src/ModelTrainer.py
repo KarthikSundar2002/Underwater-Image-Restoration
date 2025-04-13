@@ -73,7 +73,7 @@ class ModelTrainer:
             lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
             return lr_l
         
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
+        # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
         # Training loop
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
@@ -93,37 +93,36 @@ class ModelTrainer:
                 optimizer.zero_grad()
                 outputs = model(raw_imgs)
 
-                incremental_loss = 0
+                loss = charbonnier_loss(outputs, ref_imgs)
                 if args.lossf == "L1":
                     loss = criterion(outputs, ref_imgs)
-                    incremental_loss = loss.item()
+
                 # Calculate loss
                 elif args.lossf == "charbonnier":
                     loss = charbonnier_loss(outputs, ref_imgs)
-                    incremental_loss = loss
                 elif args.lossf == "perceptual":
                     loss = perceptual_loss(outputs, ref_imgs)
-                    incremental_loss = loss
+
                 elif args.lossf == "gradient":
                     loss = gradient_loss(outputs, ref_imgs)
-                    incremental_loss = loss
+
                 elif args.lossf == "mix":
                     loss = 0.03*charbonnier_loss(outputs,ref_imgs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-                    incremental_loss = loss
+
 
                 # Backward pass and optimize
                 loss.backward()
                 optimizer.step()
-                scheduler.step()
+                #scheduler.step()
 
-                epoch_loss += incremental_loss
+                epoch_loss += loss.item()
 
                 # Print progress every 10 batches
                 if (i + 1) % 1 == 0:
-                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {incremental_loss:.6f}")
+                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}")
 
                 metrics = wandb_logger.format_train_metrics(
-                    incremental_loss,
+                    loss.item(),
                     optimizer.param_groups[0]["lr"],
 
                 )
@@ -143,9 +142,27 @@ class ModelTrainer:
                     ref_imgs = ref_imgs.to(device)
 
                     outputs = model(raw_imgs)
+                    if args.lossf == "L1":
+                        loss = criterion(outputs, ref_imgs)
+
+                    # Calculate loss
+                    elif args.lossf == "charbonnier":
+                        loss = charbonnier_loss(outputs, ref_imgs)
+                    elif args.lossf == "perceptual":
+                        loss = perceptual_loss(outputs, ref_imgs)
+
+                    elif args.lossf == "gradient":
+                        loss = gradient_loss(outputs, ref_imgs)
+
+                    elif args.lossf == "mix":
+                        print("Mix Loss")
+                        loss = 0.03 * charbonnier_loss(outputs, ref_imgs) + 0.025 * perceptual_loss(outputs,
+                                                                                                    ref_imgs) + 0.02 * gradient_loss(
+                            outputs, ref_imgs) + 0.01 * (1 - ms_ssim_loss(outputs, ref_imgs))
                     #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-                    loss = criterion(outputs, ref_imgs)
-                    val_loss += incremental_loss
+                    #loss = criterion(outputs, ref_imgs)
+
+                    val_loss +=  loss.item()
 
             avg_val_loss = val_loss / len(test_loader)
             print(f"Validation Loss: {avg_val_loss:.6f}")

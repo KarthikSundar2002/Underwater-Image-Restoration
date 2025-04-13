@@ -227,7 +227,7 @@ class MyModel(nn.Module):
             x = x * mask
         # Input - x: (B, C, H, W) - B, 3, 256, 256
         y = self.input_proj(x)
-        print(f"Input Projection shape: {y.shape}")
+        # print(f"Input Projection shape: {y.shape}")
         # y - y: (B, L, C) - B, 256*256, 32
 
         conv0 = self.encoder_0(y, mask=mask) # conv0 - (B, L, C) - B, 256*256, 32
@@ -240,21 +240,21 @@ class MyModel(nn.Module):
         pool3 = self.downsample_3(conv3) # pool3 - (B, L/32, C*16) - B, 16*16, 512
 
         bottleneck = self.bottleneck(pool3)
-        print(f"Dimensions after Bottleneck {bottleneck.shape}")
+        #print(f"Dimensions after Bottleneck {bottleneck.shape}")
         up3 = self.upsample_3(bottleneck)
-        print(f"Dimensions after upsample: {up3.shape}")
+        #print(f"Dimensions after upsample: {up3.shape}")
         dec3 = self.decoder_3(up3, enc_out=conv3)
-        print(f"Dimensions after decoder: {dec3.shape}")
+        #print(f"Dimensions after decoder: {dec3.shape}")
         up2 = self.upsample_2(dec3)
-        print(f"Dimensions after upsample2: {up2.shape}")
+        #print(f"Dimensions after upsample2: {up2.shape}")
         dec2 = self.decoder_2(up2, enc_out=conv2)
-        print(f"Dimensions after decoder2: {dec2.shape}")
+        #print(f"Dimensions after decoder2: {dec2.shape}")
         up1 = self.upsample_1(dec2)
-        print(f"Dimensions after upsample1: {up1.shape}")
+        #print(f"Dimensions after upsample1: {up1.shape}")
         dec1 = self.decoder_1(up1, enc_out=conv1)
-        print(f"Dimensions after decoder1: {dec1.shape}")
+        #print(f"Dimensions after decoder1: {dec1.shape}")
         up0 = self.upsample_0(dec1)
-        print(f"Dimensions after upsample0: {up0.shape}")
+        #print(f"Dimensions after upsample0: {up0.shape}")
         dec0 = self.decoder_0(up0, enc_out=conv0)
 
         out = self.output_proj(dec0)

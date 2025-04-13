@@ -28,11 +28,7 @@ class DWT_function(torch.autograd.Function):
     def backward(ctx, dx):
         if ctx.needs_input_grad[0]:
             w_ll, w_lh, w_hl, w_hh = ctx.saved_tensors
-            print(f"w_ll shape: {w_ll.shape}")
-            print(f"w_lh shape: {w_lh.shape}")
-            print(f"w_hl shape: {w_hl.shape}")
-            print(f"w_hh shape: {w_hh.shape}")
-            print(f"ctx shape: {ctx.shape}")
+
             B,C,H,W = ctx.shape
             # w_ll = w_ll.expand(C//4, C, a, b)
             # w_lh = w_lh.expand(C//4, C, a, b)
@@ -43,7 +39,7 @@ class DWT_function(torch.autograd.Function):
             dx = dx.reshape(B, -1, H//2, W//2)
             # dx = dx.transpose(1,2).reshape(B, -1, H//2, W//2)
             filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=0)
-            print(f"filters shape in DWT Backward Pass: {filters.shape}")
+            #print(f"filters shape in DWT Backward Pass: {filters.shape}")
             # dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=1)
             # dx = rearrange(dx, 'b (n c) h w -> b c n h w', n = 4)
         
@@ -51,9 +47,9 @@ class DWT_function(torch.autograd.Function):
             # dx = rearrange(dx, 'b c n h w -> b (n c) h w')
             
             # filters = filters.reshape(-1, 4, 2, 2)
-            print(f"dx shape after rearrange: {dx.shape}")
+            #print(f"dx shape after rearrange: {dx.shape}")
             # filters = filters.expand(dim, 4, 2, 2)
-            print(f"filters shape after rearrange: {filters.shape}")
+            #print(f"filters shape after rearrange: {filters.shape}")
 
             dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=2)
 
@@ -88,23 +84,23 @@ class IDWT_function(torch.autograd.Function):
             a = filters.shape[1]
             b = filters.shape[2]
             B, C, H, W = ctx.shape
-            print(f"IDWT ctx shape: {ctx.shape}")
+            #print(f"IDWT ctx shape: {ctx.shape}")
             C = C // 4
             dx = dx.contiguous()
-            print(f"IDWT dx shape: {dx.shape}")
+            #print(f"IDWT dx shape: {dx.shape}")
             C = dx.shape[1]
             dx = dx.reshape(B, -1, H//2, W//2)
             dim = dx.shape[1]
-            print(f"IDWT dx shape after reshape: {dx.shape}")
+            #print(f"IDWT dx shape after reshape: {dx.shape}")
             # dxw_ll, dxw_lh, dxw_hl, dxw_hh = dx.chunk(4, dim=1)
             w_ll = filters[0]
             w_lh = filters[1]
             w_hl = filters[2]
             w_hh = filters[3]
-            w_ll = w_ll.expand(dim//4, dim, a, b)
-            w_lh = w_lh.expand(dim//4, dim, a, b)
-            w_hl = w_hl.expand(dim//4, dim, a, b)
-            w_hh = w_hh.expand(dim//4, dim, a, b)
+            w_ll = w_ll.expand(dim//4, dim, 2, 2)
+            w_lh = w_lh.expand(dim//4, dim, 2, 2)
+            w_hl = w_hl.expand(dim//4, dim, 2, 2)
+            w_hh = w_hh.expand(dim//4, dim, 2, 2)
             
             dx_ll = F.conv2d(dx,w_ll, stride = 2)
             dx_lh = F.conv2d(dx,w_lh, stride = 2)
@@ -143,13 +139,12 @@ class DWT_2D(nn.Module):
         self.w_hh = w_hh
 
     def forward(self, x):
-        a = self.w_ll.shape[0]
-        b = self.w_ll.shape[1]
+
         dim = x.shape[1]
-        self.w_ll = self.w_ll.expand(dim//4, dim, a, b)
-        self.w_lh = self.w_lh.expand(dim//4, dim, a, b)
-        self.w_hl = self.w_hl.expand(dim//4, dim, a, b)
-        self.w_hh = self.w_hh.expand(dim//4, dim, a, b)
+        self.w_ll = self.w_ll.expand(dim//4, dim, 2, 2)
+        self.w_lh = self.w_lh.expand(dim//4, dim, 2, 2)
+        self.w_hl = self.w_hl.expand(dim//4, dim, 2, 2)
+        self.w_hh = self.w_hh.expand(dim//4, dim, 2, 2)
         # print(f"w_ll shape: {self.w_ll.shape}")
         # print(f"w_lh shape: {self.w_lh.shape}")
         # print(f"w_hl shape: {self.w_hl.shape}")

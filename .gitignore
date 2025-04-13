@@ -11,3 +11,5 @@ src/DataManipulation/__pycache__/*
 src/utils/__pycache__/*
 /__pycache__/*
 .env
+Images/*
+Spectroformer-500/*
