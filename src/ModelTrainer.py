@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from src.utils.wandb_logger import WandBLogger
 from src.utils.Visualiser import ProcessImageUsingModel
-
+from timm.utils import NativeScaler
 
 class ModelTrainer:
     def __init__(self, inputDirectory, referenceDirectory):
@@ -63,7 +63,7 @@ class ModelTrainer:
         charbonnier_loss = CharbonnierLoss().to(device)
         perceptual_loss = VGGPerceptualLoss().to(device)
         ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
-
+        loss_scaler = NativeScaler()
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         # scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
@@ -109,10 +109,12 @@ class ModelTrainer:
                 elif args.lossf == "mix":
                     loss = 0.03*charbonnier_loss(outputs,ref_imgs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
 
+                loss_scaler(
+                loss, optimizer,parameters=model.parameters())
 
                 # Backward pass and optimize
-                loss.backward()
-                optimizer.step()
+                # loss.backward()
+                # optimizer.step()
                 #scheduler.step()
 
                 epoch_loss += loss.item()
