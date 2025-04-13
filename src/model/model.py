@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from timm.models.layers import DropPath, to_2tuple
+from timm.layers import DropPath, to_2tuple
 from einops import rearrange
 
 from src.model.block import FRFN, Downsample,Upsample, InputProjection, OutputProjection, LeFF, MDASSA
@@ -54,7 +54,7 @@ class EncoderBlock(nn.Module):
 
         shortcut = x
         freq_x = self.norm2(x)
-        x = self.norm1(x)
+        x = self.norm1(x)     
         x = self.mlp(x)
 
         # print(f"Freq_x shape: {freq_x.shape}")

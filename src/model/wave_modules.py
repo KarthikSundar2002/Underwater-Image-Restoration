@@ -171,7 +171,7 @@ class IDWT_2D(nn.Module):
         # w_hh = w_hh
 
         filters = torch.stack([w_ll, w_lh, w_hl, w_hh], dim=0)
-        print(f"IDWT filters shape: {filters.shape}")
+        #print(f"IDWT filters shape: {filters.shape}")
         self.register_buffer('filters', filters)
         self.filters = self.filters.to(dtype=torch.float32)
     

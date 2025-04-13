@@ -7,7 +7,7 @@ from torch import einsum
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
-from timm.models.layers import trunc_normal_, to_2tuple, DropPath
+from timm.layers import trunc_normal_, to_2tuple, DropPath
 
 from src.model.wave_modules import DWT_2D, IDWT_2D
 
