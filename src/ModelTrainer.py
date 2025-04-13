@@ -65,7 +65,12 @@ class ModelTrainer:
         ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
         loss_scaler = NativeScaler()
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        if args.optimizer == "adam":
+            optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        elif args.optimizer == "adamw":
+            optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
+        else:
+            raise ValueError(f"Unsupported optimizer: {args.optimizer}")
         # scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
 
         wandb_logger.watch_model(model)
@@ -109,19 +114,20 @@ class ModelTrainer:
                 elif args.lossf == "mix":
                     loss = 0.03*charbonnier_loss(outputs,ref_imgs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
 
-                loss_scaler(
-                loss, optimizer,parameters=model.parameters())
-
+                # loss_scaler(
+                # loss, optimizer,parameters=model.parameters())
+                
                 # Backward pass and optimize
-                # loss.backward()
-                # optimizer.step()
+                norm = torch.nn.utils.clip_grad_norm_(model.paramaeters(), 1.0)
+                loss.backward()
+                optimizer.step()
                 #scheduler.step()
 
                 epoch_loss += loss.item()
 
                 # Print progress every 10 batches
                 if (i + 1) % 1 == 0:
-                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}")
+                    print(f"Batch {i + 1}/{len(train_loader)}, Loss: {loss.item():.6f}, Norm: {norm:.6f}")
 
                 metrics = wandb_logger.format_train_metrics(
                     loss.item(),
