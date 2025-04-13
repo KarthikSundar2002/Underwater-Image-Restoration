@@ -65,9 +65,9 @@ class ModelTrainer:
         ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
         loss_scaler = NativeScaler()
         criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
-        if args.optimizer == "adam":
+        if args.optim == "adam":
             optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        elif args.optimizer == "adamw":
+        elif args.optim == "adamw":
             optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
         else:
             raise ValueError(f"Unsupported optimizer: {args.optimizer}")
@@ -118,7 +118,7 @@ class ModelTrainer:
                 # loss, optimizer,parameters=model.parameters())
                 
                 # Backward pass and optimize
-                norm = torch.nn.utils.clip_grad_norm_(model.paramaeters(), 1.0)
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 loss.backward()
                 optimizer.step()
                 #scheduler.step()
