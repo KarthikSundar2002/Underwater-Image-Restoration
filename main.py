@@ -50,8 +50,8 @@ def main():
         print("Initializing image data manager")
         # rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
         # referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
-        rawImageDirectory = "./uw_data/uw_data/train/a"
-        referenceImageDirectory = "./uw_data/uw_data/train/b"
+        rawImageDirectory = "data/uw_data/uw_data/manipulated/1imagea"
+        referenceImageDirectory = "data/uw_data/uw_data/manipulated/1imageb"
         dm = dataManager.DataManager()
 
         dm.setDownloadedLocations(
