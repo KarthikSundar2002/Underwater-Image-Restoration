@@ -1,5 +1,3 @@
-import datetime
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,19 +7,12 @@ import torch.fft as fft
 
 
 def inv_mag(x):
-    """
-    Calculate inverse magnitude in the frequency domain
-    """
     fft_ = torch.fft.fft2(x)
     fft_ = torch.fft.ifft2(1 * torch.exp(1j * (fft_.angle())))
     return fft_.real
 
 
 class AGSSF(nn.Module):
-    """
-    Adaptive Global Spectral Spatial Fusion module
-    """
-
     def __init__(self, channels, b=1, gamma=2):
         super(AGSSF, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -49,12 +40,7 @@ class AGSSF(nn.Module):
 
         return x * y.expand_as(x)
 
-
 class SFCA(nn.Module):
-    """
-    Spatial-Frequency Channel Attention module
-    """
-
     def __init__(self, channels, relu_slope=0.2, gamma=2):
         super(SFCA, self).__init__()
         self.identity1 = nn.Conv2d(channels, channels, 1)
@@ -87,12 +73,7 @@ class SFCA(nn.Module):
 
         return self.agssf(f_out)
 
-
 class MDTA(nn.Module):
-    """
-    Multi-Dimensional Transformer Attention module
-    """
-
     def __init__(self, channels, num_heads):
         super(MDTA, self).__init__()
         self.num_heads = num_heads
@@ -134,10 +115,6 @@ class MDTA(nn.Module):
 
 
 class GDFN(nn.Module):
-    """
-    Gated-Dconv Feed-Forward Network
-    """
-
     def __init__(self, channels, expansion_factor):
         super(GDFN, self).__init__()
 
@@ -154,10 +131,6 @@ class GDFN(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    """
-    Transformer Block combining attention and feed-forward network
-    """
-
     def __init__(self, channels, num_heads, expansion_factor):
         super(TransformerBlock, self).__init__()
 
@@ -176,10 +149,6 @@ class TransformerBlock(nn.Module):
 
 
 class DownSample(nn.Module):
-    """
-    Downsampling module to reduce spatial dimensions
-    """
-
     def __init__(self, channels):
         super(DownSample, self).__init__()
         self.body = nn.Sequential(nn.Conv2d(channels, channels // 2, kernel_size=3, padding=1, bias=False),
@@ -190,10 +159,6 @@ class DownSample(nn.Module):
 
 
 class UpSample(nn.Module):
-    """
-    Upsampling module with frequency domain processing
-    """
-
     def __init__(self, channels, channel_red):
         super(UpSample, self).__init__()
 
@@ -224,10 +189,6 @@ class UpSample(nn.Module):
 
 
 class UpSample1(nn.Module):
-    """
-    Standard upsampling using PixelShuffle
-    """
-
     def __init__(self, channels):
         super(UpSample1, self).__init__()
         self.body = nn.Sequential(nn.Conv2d(channels, channels * 2, kernel_size=3, padding=1, bias=False),
@@ -238,10 +199,6 @@ class UpSample1(nn.Module):
 
 
 class UpS(nn.Module):
-    """
-    Combined upsampling module
-    """
-
     def __init__(self, channels):
         super(UpS, self).__init__()
         self.Fups = UpSample(channels, True)
@@ -254,10 +211,6 @@ class UpS(nn.Module):
 
 
 class SpectralTransformer(nn.Module):
-    """
-    Complete Spectral Transformer model for underwater image enhancement
-    """
-
     def __init__(self, num_blocks=[2, 3, 3, 4], num_heads=[1, 2, 4, 8], channels=[16, 32, 64, 128], num_refinement=4,
                  expansion_factor=2.66, ch=[64, 32, 16, 64]):
         super(SpectralTransformer, self).__init__()
