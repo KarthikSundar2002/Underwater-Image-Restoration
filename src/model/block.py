@@ -3,7 +3,7 @@ from sympy import ff
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.fft import fft, ifft
+import torch.fft as fft
 from torch import einsum
 
 from einops import rearrange, repeat
@@ -500,7 +500,7 @@ class FDFP(nn.Module):
         if self.use_dwt:
             x = self.dwt(x)
         else:
-            x = fft.fftn(x, dim=(-2, -1))
+            x = fft.fftn(x, dim=(-2, -1)).real
         # print(f"x shape after dwt in FDFP: {x.shape}")
         x = self.conv1(x)
         #print(f"x shape after conv1 in FDFP: {x.shape}")
@@ -510,7 +510,7 @@ class FDFP(nn.Module):
         if self.use_dwt:
             x = self.idwt(x)
         else:
-            x = ifft.ifftn(x, dim=(-2, -1))
+            x = fft.ifftn(x, dim=(-2, -1)).real
        # print(f"x shape after idwt in FDFP: {x.shape}")
         x = rearrange(x, 'b c h w -> b h w c')
         

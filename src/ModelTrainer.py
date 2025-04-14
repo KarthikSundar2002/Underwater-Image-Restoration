@@ -13,6 +13,7 @@ from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import StepLR
 import time
 from tqdm import tqdm
 
@@ -47,6 +48,7 @@ class ModelTrainer:
         ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
         loss_scaler = NativeScaler()
         criterion = torch.nn.L1Loss()
+        L2_loss = torch.nn.MSELoss()
 
         if args.optim == "adam":
             optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -59,11 +61,14 @@ class ModelTrainer:
         def lambda_rule(epoch):
             lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
             return lr_l
-
+        scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
-        Training_start_time = time.time()
 
+        fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
+        with torch.no_grad():
+            ProcessImageUsingModel('cuda', fileToTest, model, f"Model Output without Training")
+        Training_start_time = time.time()
         for epoch in range(num_epochs):
             model.train()
             epoch_loss = 0
@@ -79,6 +84,8 @@ class ModelTrainer:
                 loss = charbonnier_loss(outputs, ref_imgs)
                 if args.lossf == "L1":
                     loss = criterion(outputs, ref_imgs)
+                elif args.lossf == "L2":
+                    loss = L2_loss(outputs, ref_imgs)
                 #TODO: Finalise on loss function and remove the split here when done.
                 elif args.lossf == "charbonnier":
                     loss = charbonnier_loss(outputs, ref_imgs)
@@ -88,10 +95,14 @@ class ModelTrainer:
                     loss = gradient_loss(outputs, ref_imgs)
                 elif args.lossf == "mix":
                     loss = 0.03*charbonnier_loss(outputs,ref_imgs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-
+                elif args.lossf == "bigMix":
+                    loss = 0.4 * charbonnier_loss(outputs, ref_imgs) + 0.25 * perceptual_loss(outputs,
+                                                                                                ref_imgs) + 0.25 * gradient_loss(
+                        outputs, ref_imgs) + 0.1 * (1 - ms_ssim_loss(outputs, ref_imgs))
                 loss.backward()
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
+                scheduler.step()
 
                 #scheduler.step()
 
@@ -125,7 +136,8 @@ class ModelTrainer:
                         outputs = model(raw_imgs)
                         if args.lossf == "L1":
                             loss = criterion(outputs, ref_imgs)
-
+                        elif args.lossf == "L2":
+                            loss = L2_loss(outputs, ref_imgs)
                         # Calculate loss
                         elif args.lossf == "charbonnier":
                             loss = charbonnier_loss(outputs, ref_imgs)
@@ -141,6 +153,13 @@ class ModelTrainer:
                                 outputs, ref_imgs) + 0.01 * (1 - ms_ssim_loss(outputs, ref_imgs))
                         #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
                         #loss = criterion(outputs, ref_imgs)
+
+                        elif args.lossf == "bigMix":
+                            loss = 0.4 * charbonnier_loss(outputs, ref_imgs) + 0.25 * perceptual_loss(outputs,
+                                                                                                  ref_imgs) + 0.25 * gradient_loss(
+                            outputs, ref_imgs) + 0.1 * (1 - ms_ssim_loss(outputs, ref_imgs))
+                    #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                    #loss = criterion(outputs, ref_imgs)
 
                         val_loss +=  loss.item()
 

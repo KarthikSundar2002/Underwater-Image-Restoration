@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.fft import fft, ifft
+import torch.fft as fft
 
 from timm.layers import DropPath, to_2tuple, trunc_normal_
 from einops import rearrange
@@ -66,22 +66,26 @@ class EncoderBlock(nn.Module):
         freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H, w=W)
         if self.use_dwt:
             freq_x = self.dwt(freq_x)
+            freq_x = rearrange(freq_x, 'b c h w -> b (h w) c')
         else:
             freq_x = fft.fftn(x, dim=(-2, -1)).real
         # freq_x = self.dwt(freq_x)
    
-        freq_x = rearrange(freq_x,'b c h w -> b (h w) c')
+
         freq_x = self.freq_mlp(freq_x)
     
-        freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H//2, w=W//2)
+
         if self.use_dwt:
+            freq_x = rearrange(freq_x, 'b (h w) c -> b c h w', h=H // 2, w=W // 2)
             freq_x = self.idwt(freq_x)
+            freq_x = rearrange(freq_x, 'b c h w -> b (h w) c')
         else:
-            freq_x = ifft.ifftn(freq_x, dim=(-2, -1)).real
+            freq_x = fft.ifftn(freq_x, dim=(-2, -1)).real
 
        
-        freq_x = rearrange(freq_x,'b c h w -> b (h w) c')
+
         x = shortcut + self.drop_path2(freq_x) +self.drop_path(x)
+       # x = shortcut + freq_x + x
         return x
     
 
@@ -147,11 +151,12 @@ class DecoderBlock(nn.Module):
         x = self.norm2(x)
         x = self.mlp(x)
         x = y + self.drop_path(x)
+       # x = y + x
         x = self.mlp_proj(x)
         return x
         
 class MyModel(nn.Module):
-    def __init__(self, img_size=256,dd_in=3, embed_dim=32, dropout_rate=0., drop_path_rate=0.1, use_dwt=True):
+    def __init__(self, img_size=256,dd_in=3, embed_dim=32, dropout_rate=0., drop_path_rate=0.1, use_dwt=False):
         super().__init__()
 
         self.img_size = img_size
@@ -249,15 +254,15 @@ class MyModel(nn.Module):
         #print(f"Dimensions after upsample2: {up2.shape}")
         dec2 = self.decoder_2(up2, enc_out=conv2)
         #print(f"Dimensions after decoder2: {dec2.shape}")
-        up1 = self.upsample_1(dec2)
+        up1 = self.upsample_1(up2)
         #print(f"Dimensions after upsample1: {up1.shape}")
         dec1 = self.decoder_1(up1, enc_out=conv1)
         #print(f"Dimensions after decoder1: {dec1.shape}")
-        up0 = self.upsample_0(dec1)
+        up0 = self.upsample_0(up1)
         #print(f"Dimensions after upsample0: {up0.shape}")
         dec0 = self.decoder_0(up0, enc_out=conv0)
 
-        out = self.output_proj(dec0)
+        out = self.output_proj(up0)
         out = out + x
         return out
 
