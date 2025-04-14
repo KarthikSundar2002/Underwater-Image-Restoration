@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import os
 from PIL import Image
+import torchvision.transforms as transforms
 
 # PyTorch Dataset for UIEB
 class UIEBDataset(Dataset):
@@ -11,6 +12,9 @@ class UIEBDataset(Dataset):
         self.raw_dir = raw_dir
         self.ref_dir = ref_dir
         self.transform = transform
+
+        if self.transform is None:
+            self.transform = transforms.Compose([transforms.ToTensor()])
 
     def __len__(self):
         return len(self.raw_images)

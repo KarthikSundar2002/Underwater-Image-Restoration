@@ -7,7 +7,7 @@ import src.DataManipulation.UIEBDataset as UIEBDataset
 def get_dataloaders(raw_dir, ref_dir, batch_size=16, num_workers=4):
 
     transform = transforms.Compose([
-        transforms.Resize((256, 256)),
+        #transforms.Resize((256, 256)),
         #transforms.RandomHorizontalFlip(),
         #transforms.RandomVerticalFlip(),
         #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
