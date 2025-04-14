@@ -61,14 +61,14 @@ class ModelTrainer:
         def lambda_rule(epoch):
             lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
             return lr_l
-        scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
+        scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
+        Training_start_time = time.time()
 
         fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
         with torch.no_grad():
-            ProcessImageUsingModel('cuda', fileToTest, model, f"Model Output without Training")
-        Training_start_time = time.time()
+            ProcessImageUsingModel('cuda', fileToTest, model, str(Training_start_time), f"Model Output without Training")
         for epoch in range(num_epochs):
             model.train()
             epoch_loss = 0

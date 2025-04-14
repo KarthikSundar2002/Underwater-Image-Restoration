@@ -21,6 +21,7 @@ def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     #input_tensor = input_tensor.unsqueeze(0)
     #input_tensor = input_tensor.float()
     input_tensor = transform(rgb)
+    input_tensor = input_tensor.unsqueeze(0)
     input_tensor = input_tensor.to(device)
     result = model(input_tensor)
     result_cpu = result.detach().cpu()
