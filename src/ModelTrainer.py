@@ -163,7 +163,8 @@ class ModelTrainer:
                     print(f"Model saved with loss: {best_loss:.6f}")
                     with torch.no_grad():
                         #ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
-                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best True")
+                        directory = f"{args.lossf}-{args.lr}-{args.arch}-{Training_start_time}/"
+                        ProcessImageUsingModel('cuda', fileToTest, model, directory ,f"Epoch {epoch}_ Best True")
 
                 else:
                     torch.save({'epoch': epoch,
