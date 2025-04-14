@@ -24,6 +24,6 @@ class UIEBDataset(Dataset):
 
         if self.transform:
             raw_img = self.transform(raw_img)
-
+            ref_img = self.transform(ref_img)
 
         return raw_img, ref_img  # Input and Ground Truth
