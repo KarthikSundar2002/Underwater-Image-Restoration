@@ -1,7 +1,9 @@
 import math
+from sympy import ff
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.fft import fft, ifft
 from torch import einsum
 
 from einops import rearrange, repeat
@@ -335,7 +337,7 @@ class WindowAttention_Sparse(nn.Module):
 
     
 class MDASSA(nn.Module):
-    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True, freq_attn_win_ratio=2):    
+    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True, freq_attn_win_ratio=2, use_dwt=True):    
         super().__init__()
         self.dim = dim
         self.win_size = win_size
@@ -356,7 +358,7 @@ class MDASSA(nn.Module):
             qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=proj_drop)
         
         self.conv1x1 = nn.Conv2d(dim, dim*2, kernel_size=1, stride=1, padding=0)
-        self.fdfp = FDFP(dim, dim*2, act_layer=act_layer)
+        self.fdfp = FDFP(dim, dim*2, act_layer=act_layer, use_dwt=use_dwt)
         
         self.enc_out = enc_out
         freq_attn_win_size = win_size * freq_attn_win_ratio if enc_out else win_size
@@ -479,10 +481,13 @@ class MDASSA(nn.Module):
     
 
 class FDFP(nn.Module):
-    def __init__(self, in_channels, hidden_channels,act_layer=nn.GELU):
+    def __init__(self, in_channels, hidden_channels,act_layer=nn.GELU, use_dwt=True):
         super().__init__()
-        self.dwt = DWT_2D(wave='haar')
-        self.idwt = IDWT_2D(wave='haar')
+        self.use_dwt = use_dwt
+        if self.use_dwt:
+            self.dwt = DWT_2D(wave='haar')
+            self.idwt = IDWT_2D(wave='haar')
+        
         self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1, stride=1)
         self.conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1, stride=1)
         self.act = act_layer()
@@ -492,15 +497,20 @@ class FDFP(nn.Module):
     def forward(self, x):
         B, H, W, C = x.shape
         x = rearrange(x, 'b h w c -> b c h w')
-        x = self.dwt(x)
+        if self.use_dwt:
+            x = self.dwt(x)
+        else:
+            x = fft.fftn(x, dim=(-2, -1))
         # print(f"x shape after dwt in FDFP: {x.shape}")
         x = self.conv1(x)
         #print(f"x shape after conv1 in FDFP: {x.shape}")
         x = self.act(x)
-
         x = self.conv2(x)
         #print(f"x shape after conv2 in FDFP: {x.shape}")
-        x = self.idwt(x)
+        if self.use_dwt:
+            x = self.idwt(x)
+        else:
+            x = ifft.ifftn(x, dim=(-2, -1))
        # print(f"x shape after idwt in FDFP: {x.shape}")
         x = rearrange(x, 'b c h w -> b h w c')
         

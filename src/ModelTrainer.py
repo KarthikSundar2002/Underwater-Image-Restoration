@@ -37,6 +37,7 @@ class ModelTrainer:
         print("Initializing model...")
         model = Models.init_model(
             name=arch,
+            use_dwt=args.use_dwt,
         )
         model = model.to(device)
 
