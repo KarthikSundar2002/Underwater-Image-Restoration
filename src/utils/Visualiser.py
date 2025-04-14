@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import numpy as np
 import torch
@@ -33,6 +35,8 @@ def ProcessImageUsingModel(device, fileToTest, model, saveName):
     result_numpy = (result_numpy * 255).astype(np.uint8)
 
     plt.imshow(result_numpy, interpolation='nearest',cmap = plt.cm.Spectral)
+    os.makedirs("Images", exist_ok=True)
+
     plt.savefig(f"Images/{saveName}.png")
     return img_array
 
