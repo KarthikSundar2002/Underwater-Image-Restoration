@@ -42,7 +42,6 @@ def main():
     print(f"==========\nArgs:{args}\n==========")
 
     if use_gpu:
-        print(f"Currently using GPU {args.gpu_devices}")
         cudnn.benchmark = True
     else:
         warnings.warn("Currently using CPU, however, GPU is highly recommended")
@@ -81,9 +80,6 @@ def main():
 
         plt.imshow(imarray, interpolation='nearest', cmap = plt.cm.Spectral)
         plt.savefig("ReferenceImage.png")
-
-
-
 
 if __name__ == "__main__":
     main()

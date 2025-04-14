@@ -58,7 +58,6 @@ class DataManager:
                 imageFileExtension=self.fileExtension
             )
 
-            # Apply augmentations (create 4 variants of each image)
             print("Generating augmented versions of raw images...")
             raw_augmentor.apply_augmentations(num_augmentations=4)
             raw_augmentor.save_augmented_images()

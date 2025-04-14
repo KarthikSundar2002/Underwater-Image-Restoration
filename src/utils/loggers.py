@@ -8,11 +8,6 @@ import logging
 
 
 class Logger:
-    """
-    Write console output to external text file.
-    Code imported from https://github.com/Cysu/open-reid/blob/master/reid/utils/logging.py.
-    """
-
     def __init__(self, fpath=None):
         self.console = sys.stdout
         self.file = None
@@ -47,15 +42,6 @@ class Logger:
 
 
 class RankLogger:
-    """
-    RankLogger records the rank1 matching accuracy obtained for each
-    test dataset at specified evaluation steps and provides a function
-    to show the summarized results, which are convenient for analysis.
-    Args:
-    - source_names (list): list of strings (names) of source datasets.
-    - target_names (list): list of strings (names) of target datasets.
-    """
-
     def __init__(self, source_names, target_names):
         self.source_names = source_names
         self.target_names = target_names
@@ -74,11 +60,6 @@ class RankLogger:
                 self.logger[name]["epoch"], self.logger[name]["rank1"]
             ):
                 print(f"- epoch {epoch}\t rank1 {rank1:.1%}")
-
-
-
-
-
 
 def setup_logging(filename):
     stream_handler = logging.StreamHandler(sys.stdout)

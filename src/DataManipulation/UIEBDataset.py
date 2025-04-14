@@ -5,12 +5,7 @@ from PIL import Image
 # PyTorch Dataset for UIEB
 class UIEBDataset(Dataset):
     def __init__(self, raw_dir, ref_dir, transform=None):
-        """
-        Args:
-            raw_dir (str): Path to raw images.
-            ref_dir (str): Path to reference images.
-            transform (callable, optional): Image transformations.
-        """
+
         self.raw_images = sorted(os.listdir(raw_dir))
         self.ref_images = sorted(os.listdir(ref_dir))
         self.raw_dir = raw_dir

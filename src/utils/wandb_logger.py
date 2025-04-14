@@ -11,14 +11,6 @@ class WandBLogger:
         
         if self.enabled and not args.evaluate:
             load_dotenv()
-            augmentations = []
-            # by default, horizontal flips and translations are always applied
-            # if args.random_erase: augmentations.append("erase")
-            # if args.color_jitter: augmentations.append("jitter")
-            # if args.color_aug: augmentations.append("color")
-            # aug_name = "+".join(augmentations) if augmentations else "base"
-            #
-            # aug_name = self._get_aug_name()
             wandb.login(key=os.getenv("WANDB_API_KEY"))
             wandb.init(
                 project="AML-Coursework",
@@ -30,19 +22,7 @@ class WandBLogger:
                 "%Y-%m-%d %H:%M:%S", time.localtime()
             )
 
-    # def _get_aug_name(self):
-    #     augmentations = []
-    #     # by default, horizontal flips and translations are always applied
-    #     if self.args.random_erase:
-    #         augmentations.append("erase")
-    #     if self.args.color_jitter:
-    #         augmentations.append("jitter")
-    #     if self.args.color_aug:
-    #         augmentations.append("color")
-    #     return "+".join(augmentations) if augmentations else "base"
-
     def watch_model(self, model):
-        """Watch model parameters and gradients"""
         if self.enabled and not self.args.evaluate:
             wandb.watch(model, log="all", log_freq=100)
 
@@ -51,36 +31,28 @@ class WandBLogger:
             wandb.log(metrics,step=epoch)
 
     def log_train_metrics(self, metrics, epoch, batch_idx, trainloader_len):
-        """Log training metrics with step based on epoch and batch index"""
         if self.enabled:
             step = epoch * trainloader_len + batch_idx
             wandb.log(metrics, step=step)
     
     def log_test_metrics(self, metrics):
-        """Log testing/evaluation metrics"""
         if self.enabled and not self.args.evaluate:  # Only log during training runs
             wandb.log(metrics)
     
     def format_train_metrics(
-        self, loss, learning_rate
-    ):
-        """Format training metrics for logging"""
+        self, loss, learning_rate):
         return {
             "train/loss": loss,
-
             "train/learning_rate": learning_rate,
         }
     
     def format_test_metrics(self, loss, epoch_time):
-        """Format test metrics for logging"""
         return {
             "test/loss": loss,
             "test/epochTime": epoch_time,
-
         }
 
     def log_model_artifact(self, checkpoint_path, name=None):
-        """Log a model checkpoint as a W&B artifact"""
         if self.enabled and not self.args.evaluate:
             if name is None:
                 try:
@@ -96,6 +68,5 @@ class WandBLogger:
             print(f"Logged model artifact '{name}' to W&B")
 
     def finish(self):
-        """End the wandb run"""
         if self.enabled:
             wandb.finish()

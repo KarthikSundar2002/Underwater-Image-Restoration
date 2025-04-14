@@ -27,59 +27,38 @@ class ModelTrainer:
 
 
     def train(self, args, arch="SpectroFormer", num_epochs=10, learning_rate=0.001, device="cuda" if torch.cuda.is_available() else "cpu"):
-        """
-        Train the Spectral Transformer model on UIEB dataset
-
-        Args:
-            num_epochs (int): Number of training epochs
-            learning_rate (float): Learning rate for optimizer
-            device (str): Device to run training on ('cuda' or 'cpu')
-        """
         wandb_logger = WandBLogger(args)
-        # Set device
-        print(f"Using device: {device}")
+        if not device =="cuda":
+            print(f"WARNING, NOT USING CUDA. Using device: {device}")
 
-        # Get dataloaders
         print("Preparing data loaders...")
-        # For additional training data, you can use augmented directories too
-
-        #raw_aug_dir = os.path.join(os.path.dirname(self.rawDataDirectory), "augmented_raw")
-        #ref_aug_dir = os.path.join(os.path.dirname(self.remasteredDataDirectory),
-        #                           "augmented_remastered")
-
-        # Get train and test loaders using the original data
         train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, args.train_batch_size)
 
-        # Initialize the model
         print("Initializing model...")
         model = Models.init_model(
             name=arch,
         )
         model = model.to(device)
 
-
-        # Define loss function and optimizer
         gradient_loss = Gradient_Loss().to(device)
         charbonnier_loss = CharbonnierLoss().to(device)
         perceptual_loss = VGGPerceptualLoss().to(device)
         ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
         loss_scaler = NativeScaler()
-        criterion = torch.nn.L1Loss()  # L1 loss is commonly used for image reconstruction
+        criterion = torch.nn.L1Loss()
+
         if args.optim == "adam":
             optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         elif args.optim == "adamw":
             optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
         else:
             raise ValueError(f"Unsupported optimizer: {args.optimizer}")
-        # scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.00003)
 
         wandb_logger.watch_model(model)
         def lambda_rule(epoch):
             lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
             return lr_l
-        
-        # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
-        # Training loop
+
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
 
@@ -88,39 +67,27 @@ class ModelTrainer:
             epoch_loss = 0
             start_time = time.time()
 
-            # Training phase
             for i, (raw_imgs, ref_imgs) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}")):
-                # Move data to device
                 raw_imgs = raw_imgs.to(device)
                 ref_imgs = ref_imgs.to(device)
 
-                # Forward pass
                 optimizer.zero_grad()
                 outputs = model(raw_imgs)
 
                 loss = charbonnier_loss(outputs, ref_imgs)
                 if args.lossf == "L1":
                     loss = criterion(outputs, ref_imgs)
-
-                # Calculate loss
+                #TODO: Finalise on loss function and remove the split here when done.
                 elif args.lossf == "charbonnier":
                     loss = charbonnier_loss(outputs, ref_imgs)
                 elif args.lossf == "perceptual":
                     loss = perceptual_loss(outputs, ref_imgs)
-
                 elif args.lossf == "gradient":
                     loss = gradient_loss(outputs, ref_imgs)
-
                 elif args.lossf == "mix":
                     loss = 0.03*charbonnier_loss(outputs,ref_imgs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
 
-                # loss_scaler(
-                # loss, optimizer,parameters=model.parameters())
-                
-                # Backward pass and optimize
-
                 loss.backward()
-                # torch.nn.utils.clip_grad_value_(model.parameters(), 1.0)
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
@@ -135,7 +102,6 @@ class ModelTrainer:
                 metrics = wandb_logger.format_train_metrics(
                     loss.item(),
                     optimizer.param_groups[0]["lr"],
-
                 )
                 wandb_logger.log_train_metrics(metrics, epoch, i, len(train_loader))
 
@@ -213,33 +179,22 @@ class ModelTrainer:
 
     def evaluate(self, args, model_path='best_spectral_transformer.pth',
                  device="cuda" if torch.cuda.is_available() else "cpu"):
-        """
-        Evaluate the trained model on the test dataset
-
-        Args:
-            model_path (str): Path to the saved model
-            device (str): Device to run evaluation on ('cuda' or 'cpu')
-        """
         from src.Models.SpectralTransformer import SpectralTransformer
         import numpy as np
         from skimage.metrics import peak_signal_noise_ratio as psnr
         from skimage.metrics import structural_similarity as ssim
         import matplotlib.pyplot as plt
 
-        # Get test dataloader
         _, test_loader = get_dataloaders(self.rawDataDirectory, self.remasteredDataDirectory, args.test_batch_size)
 
-        # Load model
         model = SpectralTransformer().to(device)
         checkpoint = torch.load(model_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         model.eval()
 
-        # Metrics
         psnr_values = []
         ssim_values = []
 
-        # Create directory for saving results
         results_dir = 'evaluation_results'
         os.makedirs(results_dir, exist_ok=True)
 
@@ -248,47 +203,23 @@ class ModelTrainer:
                 raw_img = raw_img.to(device)
                 ref_img = ref_img.to(device)
 
-                # Generate enhanced image
                 enhanced_img = model(raw_img)
 
-                # Convert tensors to numpy arrays for metric calculation
                 enhanced_np = enhanced_img.cpu().squeeze().permute(1, 2, 0).numpy()
                 enhanced_np = np.clip(enhanced_np, 0, 1)  # Clip values to [0, 1]
 
                 ref_np = ref_img.cpu().squeeze().permute(1, 2, 0).numpy()
                 raw_np = raw_img.cpu().squeeze().permute(1, 2, 0).numpy()
 
-                # Calculate metrics
                 curr_psnr = psnr(ref_np, enhanced_np)
                 curr_ssim = ssim(ref_np, enhanced_np, multichannel=True)
-
                 psnr_values.append(curr_psnr)
                 ssim_values.append(curr_ssim)
-
-                # Save some sample images (every 10th image)
-                if i % 10 == 0:
-                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-                    axes[0].imshow(raw_np)
-                    axes[0].set_title('Raw Underwater Image')
-                    axes[0].axis('off')
-
-                    axes[1].imshow(enhanced_np)
-                    axes[1].set_title(f'Enhanced Image (PSNR: {curr_psnr:.2f}, SSIM: {curr_ssim:.4f})')
-                    axes[1].axis('off')
-
-                    axes[2].imshow(ref_np)
-                    axes[2].set_title('Reference Image')
-                    axes[2].axis('off')
-
-                    plt.tight_layout()
-                    plt.savefig(f'{results_dir}/sample_{i}.png')
-                    plt.close()
 
                 # Print progress
                 if (i + 1) % 20 == 0:
                     print(f"Processed {i + 1}/{len(test_loader)} test images")
 
-        # Calculate and print average metrics
         avg_psnr = np.mean(psnr_values)
         avg_ssim = np.mean(ssim_values)
 
@@ -296,7 +227,6 @@ class ModelTrainer:
         print(f"Average PSNR: {avg_psnr:.2f} dB")
         print(f"Average SSIM: {avg_ssim:.4f}")
 
-        # Save metrics to file
         with open(f'{results_dir}/metrics.txt', 'w') as f:
             f.write(f"Average PSNR: {avg_psnr:.2f} dB\n")
             f.write(f"Average SSIM: {avg_ssim:.4f}\n")
