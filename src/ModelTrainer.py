@@ -56,7 +56,7 @@ class ModelTrainer:
             name=arch,
         )
         model = model.to(device)
-        wandb_logger.watch_model(model)
+
 
         # Define loss function and optimizer
         gradient_loss = Gradient_Loss().to(device)
@@ -118,9 +118,12 @@ class ModelTrainer:
                 # loss, optimizer,parameters=model.parameters())
                 
                 # Backward pass and optimize
-                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
                 loss.backward()
+                # torch.nn.utils.clip_grad_value_(model.parameters(), 1.0)
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
+
                 #scheduler.step()
 
                 epoch_loss += loss.item()
@@ -138,6 +141,7 @@ class ModelTrainer:
 
 
             avg_epoch_loss = epoch_loss / len(train_loader)
+
             epoch_time = time.time() - start_time
             print(f"Epoch {epoch + 1}/{num_epochs} completed in {epoch_time:.2f}s, Avg Loss: {avg_epoch_loss:.6f}")
 
@@ -163,7 +167,6 @@ class ModelTrainer:
                         loss = gradient_loss(outputs, ref_imgs)
 
                     elif args.lossf == "mix":
-                        print("Mix Loss")
                         loss = 0.03 * charbonnier_loss(outputs, ref_imgs) + 0.025 * perceptual_loss(outputs,
                                                                                                     ref_imgs) + 0.02 * gradient_loss(
                             outputs, ref_imgs) + 0.01 * (1 - ms_ssim_loss(outputs, ref_imgs))

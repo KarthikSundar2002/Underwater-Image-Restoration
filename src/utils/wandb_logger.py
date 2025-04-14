@@ -45,7 +45,11 @@ class WandBLogger:
         """Watch model parameters and gradients"""
         if self.enabled and not self.args.evaluate:
             wandb.watch(model, log="all", log_freq=100)
-    
+
+    def log_metrics_per_epoch(self,metrics,epoch):
+        if self.enabled and not self.args.evaluate:
+            wandb.log(metrics,step=epoch)
+
     def log_train_metrics(self, metrics, epoch, batch_idx, trainloader_len):
         """Log training metrics with step based on epoch and batch index"""
         if self.enabled:

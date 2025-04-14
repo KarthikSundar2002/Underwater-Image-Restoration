@@ -347,6 +347,9 @@ class MDASSA(nn.Module):
 
 
         self.norm1 = norm_layer(dim)
+        self.norm_q = norm_layer(dim)
+        self.norm_kv = norm_layer(dim*2)
+
         self.attn = WindowAttention_Sparse(
             dim, win_size=to_2tuple(win_size),
             num_heads=num_heads, token_projection=token_projection, qkv_bias=qkv_bias, 
@@ -428,14 +431,19 @@ class MDASSA(nn.Module):
         #print(f"x shape after spatial attention: {x.shape}")
         # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
+        freq_q = self.norm_q(freq_q)
         #print(f"freq_q shape after fdfp: {freq_q.shape}")
 
         #print(f"freq_q shape: {freq_q.shape}")
         # freq_q = rearrange(freq_q, 'b h w c -> b (h w) c')
         kv = self.conv1x1(x)
+
         #print(f"kv shape: {kv.shape}")
         kv = rearrange(kv, 'b c h w -> b h w c')
+        kv = self.norm_kv(kv)
         k,v = kv.chunk(2, dim=3)
+
+
         #print(f"k shape: {k.shape}")
         #print(f"v shape: {v.shape}")
         # kv = rearrange(kv, 'b c h w -> b (h w) c')

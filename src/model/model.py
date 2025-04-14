@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from timm.layers import DropPath, to_2tuple
+from timm.layers import DropPath, to_2tuple, trunc_normal_
 from einops import rearrange
 
 from src.model.block import FRFN, Downsample,Upsample, InputProjection, OutputProjection, LeFF, MDASSA
@@ -221,6 +221,17 @@ class MyModel(nn.Module):
                                         act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=16)
         
         self.output_proj = OutputProjection(in_channels=embed_dim, out_channel=dd_in, kernel_size=3, stride=1, norm_layer=None, act_layer=None)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            nn.init.xavier_normal_(m.weight)
 
     def forward(self, x, mask=None):
         if mask is not None:

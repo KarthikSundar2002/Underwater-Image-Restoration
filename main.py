@@ -49,17 +49,18 @@ def main():
 
     if not args.evaluate:
         print("Initializing image data manager")
-        rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
-        referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
-
+        # rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
+        # referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
+        rawImageDirectory = "./uw_data/uw_data/train/a"
+        referenceImageDirectory = "./uw_data/uw_data/train/b"
         dm = dataManager.DataManager()
 
         dm.setDownloadedLocations(
             rawDataDirectory=rawImageDirectory,
             remasteredDataDirectory=referenceImageDirectory
         )
-        dm.download()
-        dm.preProcess()
+        # dm.download()
+        # dm.preProcess()
         #dm.dataAugment() - this does NOT work - missmatch in the dataloader with increased number of raw images
 
         print("Starting training")
