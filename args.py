@@ -269,6 +269,7 @@ def argument_parser():
 
     parser.add_argument(
         "--no-wandb",
+        default=False,
         action="store_false",
         dest="use_wandb",
         help="disable Weight & Biases logging (enabled by default)",
