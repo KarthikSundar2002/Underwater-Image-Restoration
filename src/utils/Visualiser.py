@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 from src.Models import SpectralTransformer
 
 
-def ProcessImageUsingModel(device, fileToTest, model, saveName):
+def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     img = cv2.imread(fileToTest)
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -35,9 +35,9 @@ def ProcessImageUsingModel(device, fileToTest, model, saveName):
     result_numpy = (result_numpy * 255).astype(np.uint8)
 
     plt.imshow(result_numpy, interpolation='nearest',cmap = plt.cm.Spectral)
-    os.makedirs("Images", exist_ok=True)
+    os.makedirs("Images/" + directory, exist_ok=True)
 
-    plt.savefig(f"Images/{saveName}.png")
+    plt.savefig(f"Images/{directory + saveName}.png")
     return img_array
 
 

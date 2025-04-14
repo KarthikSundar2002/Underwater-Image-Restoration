@@ -31,13 +31,13 @@ class ModelTrainer:
         if not device =="cuda":
             print(f"WARNING, NOT USING CUDA. Using device: {device}")
 
-        print("Preparing data loaders...")
+        print("Preparing data loaders...batch size" + str(args.train_batch_size))
         train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, args.train_batch_size)
 
         print("Initializing model...")
         model = Models.init_model(
             name=arch,
-            use_dwt=args.use_dwt,
+            #use_dwt=args.use_dwt,
         )
         model = model.to(device)
 
@@ -62,6 +62,7 @@ class ModelTrainer:
 
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
+        Training_start_time = time.time()
 
         for epoch in range(num_epochs):
             model.train()
@@ -111,66 +112,67 @@ class ModelTrainer:
 
             epoch_time = time.time() - start_time
             print(f"Epoch {epoch + 1}/{num_epochs} completed in {epoch_time:.2f}s, Avg Loss: {avg_epoch_loss:.6f}")
+            if (epoch + 1) % 4 == 0:
 
-            # Validation phase
-            model.eval()
-            val_loss = 0
-            with torch.no_grad():
-                for raw_imgs, ref_imgs in test_loader:
-                    raw_imgs = raw_imgs.to(device)
-                    ref_imgs = ref_imgs.to(device)
-
-                    outputs = model(raw_imgs)
-                    if args.lossf == "L1":
-                        loss = criterion(outputs, ref_imgs)
-
-                    # Calculate loss
-                    elif args.lossf == "charbonnier":
-                        loss = charbonnier_loss(outputs, ref_imgs)
-                    elif args.lossf == "perceptual":
-                        loss = perceptual_loss(outputs, ref_imgs)
-
-                    elif args.lossf == "gradient":
-                        loss = gradient_loss(outputs, ref_imgs)
-
-                    elif args.lossf == "mix":
-                        loss = 0.03 * charbonnier_loss(outputs, ref_imgs) + 0.025 * perceptual_loss(outputs,
-                                                                                                    ref_imgs) + 0.02 * gradient_loss(
-                            outputs, ref_imgs) + 0.01 * (1 - ms_ssim_loss(outputs, ref_imgs))
-                    #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
-                    #loss = criterion(outputs, ref_imgs)
-
-                    val_loss +=  loss.item()
-
-            avg_val_loss = val_loss / len(test_loader)
-            print(f"Validation Loss: {avg_val_loss:.6f}")
-            metrics = wandb_logger.format_test_metrics(avg_val_loss,epoch_time)
-            wandb_logger.log_test_metrics(metrics)
-
-            fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
-            best_loss_epoch = avg_val_loss < best_loss
-            # Save model if it's the best so far
-            if best_loss_epoch:
-                best_loss = avg_val_loss
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': best_loss,
-                }, 'best_spectral_transformer.pth')
-                print(f"Model saved with loss: {best_loss:.6f}")
+                # Validation phase
+                model.eval()
+                val_loss = 0
                 with torch.no_grad():
-                    ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
-                    ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best True")
+                    for raw_imgs, ref_imgs in test_loader:
+                        raw_imgs = raw_imgs.to(device)
+                        ref_imgs = ref_imgs.to(device)
 
-            else:
-                torch.save({'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': avg_val_loss,
-                }, 'latest_spectroformer.pth')
-                with torch.no_grad():
-                    ProcessImageUsingModel('cuda', fileToTest, model, f"Epoch {epoch}_ Best False")
+                        outputs = model(raw_imgs)
+                        if args.lossf == "L1":
+                            loss = criterion(outputs, ref_imgs)
+
+                        # Calculate loss
+                        elif args.lossf == "charbonnier":
+                            loss = charbonnier_loss(outputs, ref_imgs)
+                        elif args.lossf == "perceptual":
+                            loss = perceptual_loss(outputs, ref_imgs)
+
+                        elif args.lossf == "gradient":
+                            loss = gradient_loss(outputs, ref_imgs)
+
+                        elif args.lossf == "mix":
+                            loss = 0.03 * charbonnier_loss(outputs, ref_imgs) + 0.025 * perceptual_loss(outputs,
+                                                                                                        ref_imgs) + 0.02 * gradient_loss(
+                                outputs, ref_imgs) + 0.01 * (1 - ms_ssim_loss(outputs, ref_imgs))
+                        #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+                        #loss = criterion(outputs, ref_imgs)
+
+                        val_loss +=  loss.item()
+
+                avg_val_loss = val_loss / len(test_loader)
+                print(f"Validation Loss: {avg_val_loss:.6f}")
+                metrics = wandb_logger.format_test_metrics(avg_val_loss,epoch_time)
+                wandb_logger.log_test_metrics(metrics)
+
+                fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
+                best_loss_epoch = avg_val_loss < best_loss
+                # Save model if it's the best so far
+                if best_loss_epoch:
+                    best_loss = avg_val_loss
+                    torch.save({
+                        'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': best_loss,
+                    }, 'best_spectral_transformer.pth')
+                    print(f"Model saved with loss: {best_loss:.6f}")
+                    with torch.no_grad():
+                        #ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
+                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best True")
+
+                else:
+                    torch.save({'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': avg_val_loss,
+                    }, 'latest_spectroformer.pth')
+                    with torch.no_grad():
+                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best False")
 
         print("Training completed!")
         wandb_logger.finish()

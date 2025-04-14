@@ -13,7 +13,7 @@ class ImageManipulator:
         self.imageFileExtension = imageFileExtension
 
         self.images = {}
-        filePaths = glob.glob(self.sourceDirectory + '/*/*' + self.imageFileExtension)
+        filePaths = glob.glob(self.sourceDirectory + '/*' + self.imageFileExtension)
         for filePath in filePaths:
             self.images.update({filePath: cv2.imread(filePath)})
 
