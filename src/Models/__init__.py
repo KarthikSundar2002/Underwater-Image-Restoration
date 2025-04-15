@@ -15,6 +15,7 @@ def get_names():
     return list(__model_factory.keys())
 
 def init_model(name, *args, **kwargs):
+    print("modelCreated")
     if name not in list(__model_factory.keys()):
         raise KeyError(f"Unknown model: {name}")
     return __model_factory[name](*args, **kwargs)

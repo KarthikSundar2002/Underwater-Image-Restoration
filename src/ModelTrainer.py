@@ -92,8 +92,7 @@ class ModelTrainer:
                 if args.lossf == "L1":
                     loss = criterion(outputs, ref_imgs)
                 if args.lossf == "L1withColor":
-                    loss =  0.5 * colorLoss(outputs,ref_imgs) + 0.5 * criterion(outputs, ref_imgs)
-                    print("using L1withColor")
+                    loss =  0.75 * colorLoss(outputs,ref_imgs) + 0.25 * criterion(outputs, ref_imgs)
                 elif args.lossf == "L2":
                     loss = L2_loss(outputs, ref_imgs)
                 #TODO: Finalise on loss function and remove the split here when done.
@@ -146,6 +145,8 @@ class ModelTrainer:
                         outputs = model(raw_imgs)
                         if args.lossf == "L1":
                             loss = criterion(outputs, ref_imgs)
+                        if args.lossf == "L1withColor":
+                            loss = 0.75 * colorLoss(outputs, ref_imgs) + 0.25 * criterion(outputs, ref_imgs)
                         elif args.lossf == "L2":
                             loss = L2_loss(outputs, ref_imgs)
                         # Calculate loss
