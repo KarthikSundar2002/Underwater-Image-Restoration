@@ -7,7 +7,7 @@ import importlib
 
 from pytorch_msssim import MS_SSIM
 
-from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss
+from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss, ColorLoss
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
@@ -49,6 +49,8 @@ class ModelTrainer:
         loss_scaler = NativeScaler()
         criterion = torch.nn.L1Loss()
         L2_loss = torch.nn.MSELoss()
+        colorLoss = ColorLoss().to(device)
+
 
         if args.optim == "adam":
             optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -86,6 +88,8 @@ class ModelTrainer:
                 loss = charbonnier_loss(outputs, ref_imgs)
                 if args.lossf == "L1":
                     loss = criterion(outputs, ref_imgs)
+                if args.lossf == "L1withColor":
+                    loss = 0.2 * colorLoss(outputs,ref_imgs) + 0.8 * criterion(outputs, ref_imgs)
                 elif args.lossf == "L2":
                     loss = L2_loss(outputs, ref_imgs)
                 #TODO: Finalise on loss function and remove the split here when done.

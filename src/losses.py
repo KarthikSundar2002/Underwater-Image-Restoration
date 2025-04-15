@@ -34,7 +34,26 @@ class CharbonnierLoss(nn.Module):
         diff = x - y
         # loss = torch.sum(torch.sqrt(diff * diff + self.eps))
         loss = torch.mean(torch.sqrt((diff * diff) + (self.eps*self.eps)))
-        return loss 
+        return loss
+
+class ColorLoss(nn.Module):
+    def __init__(self):
+        super(ColorLoss, self).__init__()
+
+    def forward(self,y_pred,y_true):
+        print(f"predict shape: {y_pred.shape}, truth shape: {y_true.shape}")
+
+
+        #avg_pred = torch.mean(y_pred, dim=(2, 3))
+        #avg_true = torch.mean(y_true, dim=(2, 3))
+
+        #diff = avg_pred - avg_true
+        diff = y_pred - y_true
+        avg = torch.mean(y_true, dim=(2, 3))
+
+        elementwise_loss = avg ** 2
+        loss = torch.mean(elementwise_loss)
+        return loss
     
 class VGGPerceptualLoss(torch.nn.Module):
     def __init__(self, resize=True):
