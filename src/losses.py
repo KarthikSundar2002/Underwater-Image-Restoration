@@ -43,16 +43,20 @@ class ColorLoss(nn.Module):
     def forward(self,y_pred,y_true):
         print(f"predict shape: {y_pred.shape}, truth shape: {y_true.shape}")
 
-
-        #avg_pred = torch.mean(y_pred, dim=(2, 3))
-        #avg_true = torch.mean(y_true, dim=(2, 3))
-
-        #diff = avg_pred - avg_true
+        #
+        # avg_pred = torch.mean(y_pred, dim=(2, 3))
+        # avg_true = torch.mean(y_true, dim=(2, 3))
+        # avg = avg_pred - avg_true
+        #
+        # elementwise_loss = avg ** 2
+        # loss = torch.mean(elementwise_loss)
+        #
         diff = y_pred - y_true
-        avg = torch.mean(y_true, dim=(2, 3))
-
-        elementwise_loss = avg ** 2
-        loss = torch.mean(elementwise_loss)
+        elementwise_loss = diff ** 2
+        elementAvg = torch.mean(elementwise_loss, dim=(2, 3))
+        print(f"elementAvg shape: {elementAvg.shape}")
+        loss = torch.mean(elementAvg)
+        print(f"loss shape: {loss.shape}")
         return loss
     
 class VGGPerceptualLoss(torch.nn.Module):
