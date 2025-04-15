@@ -12,13 +12,11 @@ class ImageManipulator:
         self.targetDirectory = targetDirectory
         self.imageFileExtension = imageFileExtension
 
-        #dictionary of file path, image data to allow multiple operations before saving
         self.images = {}
-        filePaths = glob.glob(self.sourceDirectory + '/*/*' + self.imageFileExtension)
+        filePaths = glob.glob(self.sourceDirectory + '/*' + self.imageFileExtension)
         for filePath in filePaths:
             self.images.update({filePath: cv2.imread(filePath)})
 
-    #resize the images from the source directory and save in the target directory, defaulting to 256 x 256
     def resizeImages(self, height = 256, width = 256):
         for filePath, img in self.images.items():
             img_array = np.array(img)

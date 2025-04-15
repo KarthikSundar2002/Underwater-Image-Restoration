@@ -18,9 +18,6 @@ class DownloaderKaggle:
         self._destinationDirectory = destinationDirectory
 
     def downloadFiles(self: str) -> str:
-
-        # Open and read the JSON auth file
-
         with open(self._pathToAuthJson, 'r') as file:
             data = json.load(file)
         kagglehub.auth.set_kaggle_credentials(data['username'], data['key'])

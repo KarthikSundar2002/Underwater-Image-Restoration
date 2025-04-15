@@ -11,3 +11,7 @@ src/DataManipulation/__pycache__/*
 src/utils/__pycache__/*
 /__pycache__/*
 .env
+Images/*
+Spectroformer-500/*
+Spectroformer-Charbonnier Loss/*
+Spectroformer-Collapse-lr0.003/*

@@ -140,10 +140,10 @@ def argument_parser():
     )
 
     parser.add_argument(
-        "--train-batch-size", default=32, type=int, help="training batch size"
+        "--train-batch-size", default=2, type=int, help="training batch size"
     )
     parser.add_argument(
-        "--test-batch-size", default=100, type=int, help="test batch size"
+        "--test-batch-size", default=1, type=int, help="test batch size"
     )
 
     # ************************************************************
@@ -199,6 +199,7 @@ def argument_parser():
     # Architecture
     # ************************************************************
     parser.add_argument("-a", "--arch", type=str, default="SpectralTransformer")
+    parser.add_argument("-lossf", "--lossf", type=str, default="L1")
     parser.add_argument(
         "--no-pretrained", action="store_true", help="do not load pretrained weights"
     )
@@ -267,7 +268,8 @@ def argument_parser():
     )
 
     parser.add_argument(
-        "--no-wandb",
+        "--use-wandb",
+        default=True,
         action="store_false",
         dest="use_wandb",
         help="disable Weight & Biases logging (enabled by default)",
@@ -297,6 +299,7 @@ def dataset_kwargs(parsed_args):
         "color_aug": parsed_args.color_aug,
         "randomPerspective": parsed_args.randomPerspective,
         "randomRotate": parsed_args.randomRotate,
+        "lossf" : parsed_args.loss_function
 
     }
 

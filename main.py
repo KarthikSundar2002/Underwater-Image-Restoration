@@ -42,24 +42,24 @@ def main():
     print(f"==========\nArgs:{args}\n==========")
 
     if use_gpu:
-        print(f"Currently using GPU {args.gpu_devices}")
         cudnn.benchmark = True
     else:
         warnings.warn("Currently using CPU, however, GPU is highly recommended")
 
     if not args.evaluate:
         print("Initializing image data manager")
-        rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
-        referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
-
+        # rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
+        # referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
+        rawImageDirectory = "data/uw_data/uw_data/manipulated/1imagea"
+        referenceImageDirectory = "data/uw_data/uw_data/manipulated/1imageb"
         dm = dataManager.DataManager()
 
         dm.setDownloadedLocations(
             rawDataDirectory=rawImageDirectory,
             remasteredDataDirectory=referenceImageDirectory
         )
-        dm.download()
-        dm.preProcess()
+        # dm.download()
+        # dm.preProcess()
         #dm.dataAugment() - this does NOT work - missmatch in the dataloader with increased number of raw images
 
         print("Starting training")
@@ -80,9 +80,6 @@ def main():
 
         plt.imshow(imarray, interpolation='nearest', cmap = plt.cm.Spectral)
         plt.savefig("ReferenceImage.png")
-
-
-
 
 if __name__ == "__main__":
     main()

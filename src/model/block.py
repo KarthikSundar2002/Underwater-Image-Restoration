@@ -1,13 +1,15 @@
 import math
+from sympy import ff
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.fft as fft
 from torch import einsum
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
-from timm.models.layers import trunc_normal_, to_2tuple, DropPath
+from timm.layers import trunc_normal_, to_2tuple, DropPath
 
 from src.model.wave_modules import DWT_2D, IDWT_2D
 
@@ -66,6 +68,8 @@ class OutputProjection(nn.Module):
         )
         if act_layer is not None:
             self.act = act_layer(inplace=True)
+        else:
+            self.act = None
         if norm_layer is not None:
             self.norm = norm_layer(out_channel)
         else:
@@ -126,10 +130,10 @@ class LinearProjection(nn.Module):
         self.inner_dim = inner_dim
 
     def forward(self, x, attn_kv=None):
-        #print(x.shape)
+      
         B, N, C = x.shape
         if attn_kv is None:
-            #print("attn_kv is None")
+          
             attn_kv = x
             #kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
             kv = self.to_kv_from_q(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
@@ -138,11 +142,16 @@ class LinearProjection(nn.Module):
         else:
             N_kv = attn_kv.size(1)
             #kv = self.to_kv(attn_kv).reshape(B, N_kv, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
-            kv = self.to_kv(attn_kv)
-            kv = rearrange(kv, 'n (a b) (nh c) -> n b nh a c', nh = self.heads, b = B)
-            kv = kv.reshape(kv.shape[0], kv.shape[1]*4, kv.shape[2], kv.shape[3]//2, kv.shape[4]//2).contiguous()
+            # kv = self.to_kv(attn_kv)
+            # print(f"kv shape before reshape: {kv.shape}")
+            # kv = rearrange(kv, 'n (a b) (nh c) -> n b nh a c', nh = self.heads, b = B)
+            # print(f"kv shape after reshape: {kv.shape}")
+            # kv = kv.reshape(kv.shape[0], kv.shape[1]*4, kv.shape[2], kv.shape[3]//2, kv.shape[4]//2).contiguous()
+            # print(f"kv shape after reshape: {kv.shape}")
+            kv = self.to_kv(attn_kv).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+            # kv = self.to_kv(x).reshape(B, N, 2, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
             #print(f"kv shape when attn_kv is given: {kv.shape}")
-            q = self.to_q(x).reshape(B*4, N//4, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
+            q = self.to_q(x).reshape(B, N, 1, self.heads, C // self.heads).permute(2, 0, 3, 1, 4)
 
         # print(f"x shape: {x.shape}")
         # print(f"kv shape: {kv.shape}")
@@ -328,7 +337,7 @@ class WindowAttention_Sparse(nn.Module):
 
     
 class MDASSA(nn.Module):
-    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True, freq_attn_win_ratio=2):    
+    def __init__(self, dim, win_size,shift_size ,num_heads, qk_scale=None, qkv_bias=True, token_projection='linear', attn_drop=0., proj_drop=0., drop_path=0., norm_layer=nn.LayerNorm, act_layer=nn.GELU, enc_out=True, freq_attn_win_ratio=2, use_dwt=True):    
         super().__init__()
         self.dim = dim
         self.win_size = win_size
@@ -340,13 +349,16 @@ class MDASSA(nn.Module):
 
 
         self.norm1 = norm_layer(dim)
+        self.norm_q = norm_layer(dim)
+        self.norm_kv = norm_layer(dim*2)
+
         self.attn = WindowAttention_Sparse(
             dim, win_size=to_2tuple(win_size),
             num_heads=num_heads, token_projection=token_projection, qkv_bias=qkv_bias, 
             qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=proj_drop)
         
         self.conv1x1 = nn.Conv2d(dim, dim*2, kernel_size=1, stride=1, padding=0)
-        self.fdfp = FDFP(dim, dim*2, act_layer=act_layer)
+        self.fdfp = FDFP(dim, dim*2, act_layer=act_layer, use_dwt=use_dwt)
         
         self.enc_out = enc_out
         freq_attn_win_size = win_size * freq_attn_win_ratio if enc_out else win_size
@@ -421,33 +433,61 @@ class MDASSA(nn.Module):
         #print(f"x shape after spatial attention: {x.shape}")
         # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
-        
+        freq_q = self.norm_q(freq_q)
+        #print(f"freq_q shape after fdfp: {freq_q.shape}")
 
         #print(f"freq_q shape: {freq_q.shape}")
         # freq_q = rearrange(freq_q, 'b h w c -> b (h w) c')
         kv = self.conv1x1(x)
+
+        #print(f"kv shape: {kv.shape}")
+        kv = rearrange(kv, 'b c h w -> b h w c')
+        kv = self.norm_kv(kv)
+        k,v = kv.chunk(2, dim=3)
+
+
+        #print(f"k shape: {k.shape}")
+        #print(f"v shape: {v.shape}")
         # kv = rearrange(kv, 'b c h w -> b (h w) c')
         if self.shift_size > 0:
             shifted_freq_q = torch.roll(freq_q, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
-            shifted_kv = torch.roll(kv, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_k = torch.roll(k, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_v = torch.roll(v, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
         else:
             shifted_freq_q = freq_q
-            shifted_kv = kv
+            shifted_k = k
+            shifted_v = v
         
         freq_q_windows = window_partition(shifted_freq_q, self.win_size)
-        kv_windows = window_partition(shifted_kv, self.win_size)
-
+        k_windows = window_partition(shifted_k, self.win_size)
+        v_windows = window_partition(shifted_v, self.win_size)
+        kv_windows = torch.cat((k_windows, v_windows), dim=-1)
+        #print(f"freq_q_windows shape: {freq_q_windows.shape}")
+        #print(f"kv_windows shape: {kv_windows.shape}")
+        freq_q_windows = rearrange(freq_q_windows, 'b h w c -> b (h w) c', h=self.win_size, w=self.win_size)
+        kv_windows = rearrange(kv_windows, 'b h w c -> b (h w) c', h=self.win_size, w=self.win_size)
         freq_attn_windows = self.freq_attn(freq_q_windows, attn_kv=kv_windows, mask=None)
-        #print(f"kv_shape input to freq_attn: {kv.shape}")
-        freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
+
+        freq_attn_windows = freq_attn_windows.view(-1, self.win_size, self.win_size, C)
+        shifted_freq_attn = window_reverse(freq_attn_windows, self.win_size, H, W)
+
+        if self.shift_size > 0:
+            freq_attn = torch.roll(shifted_freq_attn, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
+        else:
+            freq_attn = shifted_freq_attn
+        # #print(f"kv_shape input to freq_attn: {kv.shape}")
+        # freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
         return freq_attn
     
 
 class FDFP(nn.Module):
-    def __init__(self, in_channels, hidden_channels,act_layer=nn.GELU):
+    def __init__(self, in_channels, hidden_channels,act_layer=nn.GELU, use_dwt=True):
         super().__init__()
-        self.dwt = DWT_2D(wave='haar')
-        self.idwt = IDWT_2D(wave='haar')
+        self.use_dwt = use_dwt
+        if self.use_dwt:
+            self.dwt = DWT_2D(wave='haar')
+            self.idwt = IDWT_2D(wave='haar')
+        
         self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1, stride=1)
         self.conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1, stride=1)
         self.act = act_layer()
@@ -457,15 +497,20 @@ class FDFP(nn.Module):
     def forward(self, x):
         B, H, W, C = x.shape
         x = rearrange(x, 'b h w c -> b c h w')
-        x = self.dwt(x)
+        if self.use_dwt:
+            x = self.dwt(x)
+        else:
+            x = fft.fftn(x, dim=(-2, -1)).real
         # print(f"x shape after dwt in FDFP: {x.shape}")
         x = self.conv1(x)
         #print(f"x shape after conv1 in FDFP: {x.shape}")
         x = self.act(x)
-
         x = self.conv2(x)
         #print(f"x shape after conv2 in FDFP: {x.shape}")
-        x = self.idwt(x)
+        if self.use_dwt:
+            x = self.idwt(x)
+        else:
+            x = fft.ifftn(x, dim=(-2, -1)).real
        # print(f"x shape after idwt in FDFP: {x.shape}")
         x = rearrange(x, 'b c h w -> b h w c')
         

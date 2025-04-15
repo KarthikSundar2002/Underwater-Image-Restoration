@@ -1,21 +1,21 @@
 from torch.utils.data import Dataset
 import os
 from PIL import Image
+import torchvision.transforms as transforms
 
 # PyTorch Dataset for UIEB
 class UIEBDataset(Dataset):
     def __init__(self, raw_dir, ref_dir, transform=None):
-        """
-        Args:
-            raw_dir (str): Path to raw images.
-            ref_dir (str): Path to reference images.
-            transform (callable, optional): Image transformations.
-        """
+
         self.raw_images = sorted(os.listdir(raw_dir))
         self.ref_images = sorted(os.listdir(ref_dir))
         self.raw_dir = raw_dir
         self.ref_dir = ref_dir
         self.transform = transform
+
+        if self.transform is None:
+            self.transform = transforms.Compose([transforms.ToTensor()],
+                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
 
     def __len__(self):
         return len(self.raw_images)
