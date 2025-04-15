@@ -7,7 +7,7 @@ import importlib
 
 from pytorch_msssim import MS_SSIM
 
-from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss
+from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss, ColorLoss
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
