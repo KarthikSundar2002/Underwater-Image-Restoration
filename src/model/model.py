@@ -156,7 +156,7 @@ class DecoderBlock(nn.Module):
         return x
         
 class MyModel(nn.Module):
-    def __init__(self, img_size=256,dd_in=3, embed_dim=32, dropout_rate=0., drop_path_rate=0.1, use_dwt=False):
+    def __init__(self, img_size=256,dd_in=3, embed_dim=32, dropout_rate=0., drop_path_rate=0.1, use_dwt=True):
         super().__init__()
 
         self.img_size = img_size

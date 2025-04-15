@@ -7,7 +7,7 @@ import importlib
 
 from pytorch_msssim import MS_SSIM
 
-from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss, ColorLoss
+from src.losses import CharbonnierLoss, Gradient_Loss, VGGPerceptualLoss
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 from src.Models.SpectralTransformer import SpectralTransformer
@@ -63,16 +63,19 @@ class ModelTrainer:
         def lambda_rule(epoch):
             lr_l = 1.0 - max(0, epoch - num_epochs) / float(num_epochs + 1)
             return lr_l
-        scheduler = StepLR(optimizer, step_size=300, gamma=0.25)
+        scheduler = StepLR(optimizer, step_size=10, gamma=0.95)
         print(f"Starting training for {num_epochs} epochs...")
         best_loss = float('inf')
         Training_start_time = time.time()
-
+        # fileToTest = "tiny_data/train/a/6_img_.png"
+        # with torch.no_grad():
+        #     ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}",f"Model Output without Training", wandb_logger)
         fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
         directory = f"{args.lossf}-{args.lr}-{args.arch}-{Training_start_time}//"
 
+
         with torch.no_grad():
-            ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Model Output without Training")
+            ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Model Output without Training", wandb_logger)
         for epoch in range(num_epochs):
             model.train()
             epoch_loss = 0
@@ -188,7 +191,8 @@ class ModelTrainer:
                     }, 'best_spectral_transformer.pth')
                     print(f"Model saved with loss: {best_loss:.6f}")
                     with torch.no_grad():
-                        ProcessImageUsingModel('cuda', fileToTest, model, directory ,f"Epoch {epoch}_ Best True")
+                        #ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
+                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best True", wandb_logger)
 
                 else:
                     torch.save({'epoch': epoch,
@@ -197,7 +201,7 @@ class ModelTrainer:
                         'loss': avg_val_loss,
                     }, 'latest_spectroformer.pth')
                     with torch.no_grad():
-                        ProcessImageUsingModel('cuda', fileToTest, model, directory ,f"Epoch {epoch}_ Best False")
+                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best False", wandb_logger)
 
         print("Training completed!")
         wandb_logger.finish()

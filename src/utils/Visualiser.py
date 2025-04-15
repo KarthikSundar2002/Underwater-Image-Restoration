@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 import torch
+import wandb
 from PIL import Image
 from matplotlib import pyplot as plt
 from torchvision.transforms import transforms
@@ -10,11 +11,12 @@ from torchvision.transforms import transforms
 from src.Models import SpectralTransformer
 
 
-def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
+def ProcessImageUsingModel(device, fileToTest, model, directory, saveName, wandb_logger):
     # img = cv2.imread(fileToTest)
     # rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     rgb = Image.open(fileToTest)
-    transform = transforms.Compose([transforms.Resize((256, 256)),transforms.ToTensor(),transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+    transform = transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor(),
+                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     #img_array = np.array(rgb)
     #input_tensor = torch.from_numpy(img_array)
     #input_tensor = input_tensor.permute(2, 0, 1)
@@ -23,6 +25,7 @@ def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     input_tensor = transform(rgb)
     input_tensor = input_tensor.unsqueeze(0)
     input_tensor = input_tensor.to(device)
+
     result = model(input_tensor)
     result_cpu = result.detach().cpu()
     if result_cpu.dim() == 4 and result_cpu.shape[0] == 1:
@@ -43,6 +46,7 @@ def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     # plt.imshow(result_numpy, interpolation='nearest',cmap = plt.cm.Spectral)
     os.makedirs("Images/" + directory, exist_ok=True)
 
+    wandb_logger.log_image(res, name=saveName)
     res.save(f"Images/{directory + saveName}.png")
     return rgb
 
