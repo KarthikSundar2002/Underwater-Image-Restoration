@@ -70,7 +70,7 @@ def main():
         trainer.train(args, args.arch ,args.max_epoch, args.lr)
     else:
         pthFileLocation = "best_spectral_transformer.pth"
-        fileToTest = "../data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+        fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
 
         device = "cuda" if use_gpu else "cpu"
 

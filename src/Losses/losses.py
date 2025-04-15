@@ -2,6 +2,63 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from pytorch_msssim import MS_SSIM
+from timm.utils import NativeScaler
+
+
+class LossFunction():
+    def __init__(self, loss_name, device):
+        self.loss_name = loss_name
+
+        if loss_name in ["L1","L1withColor"]:
+            self.criterion = torch.nn.L1Loss()
+        if loss_name in ["L1withColor"]:
+            self.colorLoss = ColorLoss().to(device)
+        if loss_name in ["L2"]:
+            self.L2_loss = torch.nn.MSELoss()
+        if loss_name in ["mix","bigMix","charbonnier"]:
+            self.charbonnier_loss = CharbonnierLoss().to(device)
+        if loss_name in ["mix", "bigMix", "perceptual"]:
+            self.perceptual_loss = VGGPerceptualLoss().to(device)
+        if loss_name in ["mix", "bigMix", "gradient"]:
+            self.gradient_loss = Gradient_Loss().to(device)
+        if loss_name in ["mix", "bigMix"]:
+            self.ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
+
+    def getloss(self, predicted_data, truth_data):
+        if self.loss_name == "L1":
+            loss = self.criterion(predicted_data, truth_data)
+        elif self.loss_name == "L1withColor":
+            loss = 0.75 * self.colorLoss(predicted_data, truth_data) + 0.25 * self.criterion(predicted_data, truth_data)
+        elif self.loss_name == "L2":
+            loss = self.L2_loss(predicted_data, truth_data)
+        # Calculate loss
+        elif self.loss_name == "charbonnier":
+            loss = self.charbonnier_loss(predicted_data, truth_data)
+        elif self.loss_name == "perceptual":
+            loss = self.perceptual_loss(predicted_data, truth_data)
+
+        elif self.loss_name == "gradient":
+            loss = self.gradient_loss(predicted_data, truth_data)
+
+        elif self.loss_name == "mix":
+            loss = 0.03 * self.charbonnier_loss(predicted_data, truth_data) + 0.025 * self.perceptual_loss(predicted_data,
+                                                                                        truth_data) + 0.02 * self.gradient_loss(
+                predicted_data, truth_data) + 0.01 * (1 - self.ms_ssim_loss(predicted_data, truth_data))
+        #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+        #loss = criterion(outputs, ref_imgs)
+
+        elif self.loss_name == "bigMix":
+            loss = 0.4 * self.charbonnier_loss(predicted_data, truth_data) + 0.25 * self.perceptual_loss(predicted_data,
+                                                                                  truth_data) + 0.25 * self.gradient_loss(
+            predicted_data, truth_data) + 0.1 * (1 - self.ms_ssim_loss(predicted_data, truth_data))
+            #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
+            #loss = criterion(outputs, ref_imgs)
+        else:
+            raise ValueError(f"Unsupported loss: {self.loss_name}")
+
+
+        return loss
 
 class Gradient_Loss(nn.Module):
     def __init__(self):
