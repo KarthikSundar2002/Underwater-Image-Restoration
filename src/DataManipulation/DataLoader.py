@@ -12,7 +12,7 @@ def get_dataloaders(raw_dir, ref_dir, batch_size=16, num_workers=4):
         #transforms.RandomVerticalFlip(),
         #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
 
     #todo: NOTE: Do we want to be running this again as well as augmenting images?

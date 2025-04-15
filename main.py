@@ -32,7 +32,7 @@ def main():
     if args.use_cpu:
         use_gpu = False
 
-    outputdirectory = "logs/" + "/arch-" + str(args.arch) + "/optimizer-" + str(args.optim) + "/maxEpoch-" + str(args.max_epoch) + "/lr-" + str(args.lr)  + "/batchSize-" + str(args.train_batch_size) + "/perspective-" + str(args.randomPerspective) + "-rotate-" + str(args.randomRotate)
+    outputdirectory = "logs/" + "/arch-" + str(args.arch) + "/optimizer-" + str(args.optim) + "/loss-"+str(args.lossf)+"/maxEpoch-" + str(args.max_epoch) + "/lr-" + str(args.lr)  + "/batchSize-" + str(args.train_batch_size) + "/perspective-" + str(args.randomPerspective) + "-rotate-" + str(args.randomRotate)
     args.save_dir = outputdirectory
     log_name = "log_test.txt" if args.evaluate else "log_train.txt"
     sys.stdout = Logger(osp.join(args.save_dir, log_name))

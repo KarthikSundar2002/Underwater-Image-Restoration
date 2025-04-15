@@ -3,10 +3,12 @@ from src.model.model import MyModel as NewModel
 from .SpectralTransformer import (
     SpectralTransformer,
 )
+from src.Models.AST import AST
 
 __model_factory = {
     "SpectralTransformer": SpectralTransformer,
     "NewModel": NewModel,
+    "AST": AST
 }
 
 def get_names():
