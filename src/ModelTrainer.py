@@ -192,7 +192,7 @@ class ModelTrainer:
                     print(f"Model saved with loss: {best_loss:.6f}")
                     with torch.no_grad():
                         #ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
-                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best True", wandb_logger)
+                        ProcessImageUsingModel('cuda', fileToTest, model, directory ,f"Epoch {epoch}_ Best True", wandb_logger)
 
                 else:
                     torch.save({'epoch': epoch,
@@ -201,7 +201,7 @@ class ModelTrainer:
                         'loss': avg_val_loss,
                     }, 'latest_spectroformer.pth')
                     with torch.no_grad():
-                        ProcessImageUsingModel('cuda', fileToTest, model, f"{Training_start_time}/" ,f"Epoch {epoch}_ Best False", wandb_logger)
+                        ProcessImageUsingModel('cuda', fileToTest, model, directory ,f"Epoch {epoch}_ Best False", wandb_logger)
 
         print("Training completed!")
         wandb_logger.finish()
