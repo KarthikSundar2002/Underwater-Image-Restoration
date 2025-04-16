@@ -203,6 +203,7 @@ def argument_parser():
     parser.add_argument(
         "--no-pretrained", action="store_true", help="do not load pretrained weights"
     )
+    parser.add_argument("--use-dwt",type=str, default="Fourier")
 
     # ************************************************************
     # Test settings

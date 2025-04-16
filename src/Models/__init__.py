@@ -18,4 +18,8 @@ def init_model(name, *args, **kwargs):
     print("modelCreated")
     if name not in list(__model_factory.keys()):
         raise KeyError(f"Unknown model: {name}")
+    if name is "NewModel" and "use_dwt" in kwargs:
+        return __model_factory[name].init_model(*args, **kwargs)
+    else:
+        kwargs.pop("use_dwt")
     return __model_factory[name](*args, **kwargs)
