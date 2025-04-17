@@ -401,10 +401,9 @@ class MDASSA(nn.Module):
             shift_attn_mask = shift_attn_mask.torch.masked_fill(shift_attn_mask!=0, float(-100.0)).masked_fill(shift_attn_mask == 0, float(0.0))
             attn_mask = attn_mask + shift_attn_mask if attn_mask is not None else shift_attn_mask
 
-        shortcut = x
         
-
         x = self.norm1(x)
+        shortcut = x
         x = x.view(B, H, W, C)
         freq_in = x
         
@@ -433,7 +432,8 @@ class MDASSA(nn.Module):
         #print(f"x shape after spatial attention: {x.shape}")
         # print(f"freq_in shape: {freq_in.shape}")
         freq_q = self.fdfp(freq_in)
-        freq_q = self.norm_q(freq_q)
+        freq_shortcut = freq_q
+        # freq_q = self.norm_q(freq_q)
         #print(f"freq_q shape after fdfp: {freq_q.shape}")
 
         #print(f"freq_q shape: {freq_q.shape}")
@@ -442,7 +442,7 @@ class MDASSA(nn.Module):
 
         #print(f"kv shape: {kv.shape}")
         kv = rearrange(kv, 'b c h w -> b h w c')
-        kv = self.norm_kv(kv)
+        # kv = self.norm_kv(kv)
         k,v = kv.chunk(2, dim=3)
 
 
@@ -477,6 +477,7 @@ class MDASSA(nn.Module):
             freq_attn = shifted_freq_attn
         # #print(f"kv_shape input to freq_attn: {kv.shape}")
         # freq_attn = self.freq_attn(freq_q, attn_kv=kv, mask=mask)
+        freq_attn = freq_shortcut + self.freq_drop_path(freq_attn)
         return freq_attn
     
 
@@ -489,7 +490,7 @@ class FDFP(nn.Module):
             self.idwt = IDWT_2D(wave='haar')
         
         self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1, stride=1)
-        self.conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1, stride=1)
+        self.conv2 = nn  .Conv2d(hidden_channels, in_channels, kernel_size=1, stride=1)
         self.act = act_layer()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels

@@ -254,15 +254,15 @@ class MyModel(nn.Module):
         #print(f"Dimensions after upsample2: {up2.shape}")
         dec2 = self.decoder_2(up2, enc_out=conv2)
         #print(f"Dimensions after decoder2: {dec2.shape}")
-        up1 = self.upsample_1(up2)
+        up1 = self.upsample_1(dec2)
         #print(f"Dimensions after upsample1: {up1.shape}")
         dec1 = self.decoder_1(up1, enc_out=conv1)
         #print(f"Dimensions after decoder1: {dec1.shape}")
-        up0 = self.upsample_0(up1)
+        up0 = self.upsample_0(dec1)
         #print(f"Dimensions after upsample0: {up0.shape}")
         dec0 = self.decoder_0(up0, enc_out=conv0)
 
-        out = self.output_proj(up0)
+        out = self.output_proj()
         out = out + x
         return out
 
