@@ -262,7 +262,7 @@ class MyModel(nn.Module):
         #print(f"Dimensions after upsample0: {up0.shape}")
         dec0 = self.decoder_0(up0, enc_out=conv0)
 
-        out = self.output_proj()
+        out = self.output_proj(dec0)
         out = out + x
         return out
 
