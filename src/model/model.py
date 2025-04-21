@@ -15,7 +15,7 @@ import math
 class EncoderBlock(nn.Module):
     def __init__(self, dim, input_resolution, num_heads,
                  mlp_ratio=4,token_mlp="leff",drop_path=0.0, norm_layer=nn.LayerNorm
-                 , act_layer=nn.GELU, drop=0.0, freq_mlp="leff", use_dwt=True):
+                 , act_layer=nn.GELU, drop=0.0, freq_mlp="leff", use_dwt="Fourier"):
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
@@ -36,7 +36,7 @@ class EncoderBlock(nn.Module):
         else:
             raise ValueError(f"Unknown token_mlp type: {token_mlp}")
         
-        if self.use_dwt:
+        if self.use_dwt == "Wavelet":
             self.dwt = DWT_2D()
         self.norm2 = norm_layer(dim)
         
@@ -47,7 +47,7 @@ class EncoderBlock(nn.Module):
         else:
             raise ValueError(f"Unknown freq_mlp type: {freq_mlp}")
         
-        if self.use_dwt:
+        if self.use_dwt == "Wavelet":
             self.idwt = IDWT_2D()
         
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -64,24 +64,27 @@ class EncoderBlock(nn.Module):
 
      
         freq_x = rearrange(freq_x,'b (h w) c -> b c h w', h=H, w=W)
-        if self.use_dwt:
+        if self.use_dwt == "Wavelet":
             freq_x = self.dwt(freq_x)
             freq_x = rearrange(freq_x, 'b c h w -> b (h w) c')
-        else:
+        elif self.use_dwt == "Fourier":
             freq_x = fft.fftn(x, dim=(-2, -1)).real
+        else:
+            freq_x = freq_x
         # freq_x = self.dwt(freq_x)
    
 
         freq_x = self.freq_mlp(freq_x)
     
 
-        if self.use_dwt:
+        if self.use_dwt == "Wavelet":
             freq_x = rearrange(freq_x, 'b (h w) c -> b c h w', h=H // 2, w=W // 2)
             freq_x = self.idwt(freq_x)
             freq_x = rearrange(freq_x, 'b c h w -> b (h w) c')
-        else:
+        elif self.use_dwt == "Fourier":
             freq_x = fft.ifftn(freq_x, dim=(-2, -1)).real
-
+        else:
+            freq_x = freq_x
        
 
         x = shortcut + self.drop_path2(freq_x) +self.drop_path(x)
@@ -156,7 +159,7 @@ class DecoderBlock(nn.Module):
         return x
         
 class MyModel(nn.Module):
-    def __init__(self, img_size=256,dd_in=3, embed_dim=32, dropout_rate=0., drop_path_rate=0.1, use_dwt=True):
+    def __init__(self, img_size=256,dd_in=3, embed_dim=32, dropout_rate=0., drop_path_rate=0.1, use_dwt="Fourier"):
         super().__init__()
 
         self.img_size = img_size

@@ -26,7 +26,7 @@ class ModelTrainer:
         train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, args.train_batch_size)
 
         print("Initializing model...")
-        model = Models.init_model(name=arch)
+        model = Models.init_model(name=arch, use_dwt=args.use_dwt)
         model = model.to(device)
         lossfunction = LossFunction(args.lossf, device)
         optimizer = self.getOptimizer(args, learning_rate, model)
@@ -34,7 +34,7 @@ class ModelTrainer:
         wandb_logger = WandBLogger(args)
         wandb_logger.watch_model(model)
 
-        scheduler = StepLR(optimizer, step_size=10, gamma=0.95)
+        scheduler = StepLR(optimizer, step_size=512, gamma=0.995)
         best_loss = float('inf')
 
         Training_start_time = time.time()

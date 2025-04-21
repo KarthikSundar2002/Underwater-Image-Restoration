@@ -14,7 +14,7 @@ class WandBLogger:
             wandb.login(key=os.getenv("WANDB_API_KEY"))
             wandb.init(
                 project="AML-Coursework",
-                name=f"{args.arch}__{args.lossf}_{args.lr:.0e}_{args.train_batch_size}_{args.optim}_{args.max_epoch}",
+                name=f"{args.arch}__{args.lossf}_{args.lr:.0e}_{args.train_batch_size}_{args.optim}_{args.max_epoch}_freq-transform_{args.use_dwt}",
                 config=vars(args),
             )
             wandb.run.summary["uuid"] = str(uuid.uuid4())

@@ -498,20 +498,24 @@ class FDFP(nn.Module):
     def forward(self, x):
         B, H, W, C = x.shape
         x = rearrange(x, 'b h w c -> b c h w')
-        if self.use_dwt:
+        if self.use_dwt == "Wavelet":
             x = self.dwt(x)
-        else:
+        elif self.use_dwt == "Fourier":
             x = fft.fftn(x, dim=(-2, -1)).real
+        else:
+            x = x
         # print(f"x shape after dwt in FDFP: {x.shape}")
         x = self.conv1(x)
         #print(f"x shape after conv1 in FDFP: {x.shape}")
         x = self.act(x)
         x = self.conv2(x)
         #print(f"x shape after conv2 in FDFP: {x.shape}")
-        if self.use_dwt:
+        if self.use_dwt == "Wavelet":
             x = self.idwt(x)
-        else:
+        elif self.use_dwt == "Fourier":
             x = fft.ifftn(x, dim=(-2, -1)).real
+        else:
+            x = x
        # print(f"x shape after idwt in FDFP: {x.shape}")
         x = rearrange(x, 'b c h w -> b h w c')
         
