@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from pytorch_msssim import MS_SSIM
-from focal_frequency_loss import FocalFrequencyLoss as FFL
+#from focal_frequency_loss import FocalFrequencyLoss as FFL
 
 from src.Losses.luminanceLoss import LuminanceLoss
 from timm.utils import NativeScaler
@@ -17,6 +17,9 @@ class LossFunction():
             self.criterion = torch.nn.L1Loss()
         if loss_name in ["L1withColor"]:
             self.colorLoss = ColorLoss().to(device)
+        if loss_name in ["L1ColorLum"]:
+            self.colorLoss = ColorLoss().to(device)
+            self.luminanceLoss = LuminanceLoss().to(device)
         if loss_name in ["L2"]:
             self.L2_loss = torch.nn.MSELoss()
         if loss_name in ["mix","bigMix","charbonnier","fflCharbonnier", "fflMix", "LuminanceCharbonnier"]:
@@ -37,8 +40,23 @@ class LossFunction():
             loss = self.criterion(predicted_data, truth_data)
             loss = loss / (truth_data.shape[0] * truth_data.shape[1])
         elif self.loss_name == "L1withColor":
-            loss = 0.75 * self.colorLoss(predicted_data, truth_data) + 0.25 * self.criterion(predicted_data, truth_data)
+            loss = 0.5 * self.colorLoss(predicted_data, truth_data)
+            print("Color loss: " + str(loss.item()))
+            loss = loss + 0.25 * self.criterion(predicted_data, truth_data)
+            print("L1 + Color loss: " + str(loss.item()))
+            loss = loss + 0.25 * self.luminanceLoss(predicted_data, truth_data)
+            print("L1 + Color + Luminance loss: " + str(loss.item()))
             loss = loss / (truth_data.shape[0] * truth_data.shape[1])
+            print("overall loss: " + str(loss.item()))
+        elif self.loss_name == "L1ColorLum":
+            loss = 0.5 * self.colorLoss(predicted_data, truth_data)
+            print("Color loss: " + str(loss.item()))
+            loss = loss + 0.25 * self.criterion(predicted_data, truth_data)
+            print("L1 + Color loss: " + str(loss.item()))
+            loss = loss + 0.25 * self.luminanceLoss(predicted_data, truth_data)
+            print("L1 + Color + Luminance loss: " + str(loss.item()))
+            loss = loss / (truth_data.shape[0] * truth_data.shape[1])
+            print("overall loss: " + str(loss.item()))
         elif self.loss_name == "L2":
             loss = self.L2_loss(predicted_data, truth_data)
             loss = loss / (truth_data.shape[0] * truth_data.shape[1])
