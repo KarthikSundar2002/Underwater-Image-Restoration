@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torchvision
 from pytorch_msssim import MS_SSIM
 from focal_frequency_loss import FocalFrequencyLoss as FFL
+
+from src.Losses.luminanceLoss import LuminanceLoss
 from timm.utils import NativeScaler
 
 
@@ -17,16 +19,18 @@ class LossFunction():
             self.colorLoss = ColorLoss().to(device)
         if loss_name in ["L2"]:
             self.L2_loss = torch.nn.MSELoss()
-        if loss_name in ["mix","bigMix","charbonnier","fflCharbonnier"]:
+        if loss_name in ["mix","bigMix","charbonnier","fflCharbonnier", "fflMix", "LuminanceCharbonnier"]:
             self.charbonnier_loss = CharbonnierLoss().to(device)
-        if loss_name in ["mix", "bigMix", "perceptual"]:
+        if loss_name in ["mix", "bigMix", "perceptual", "fflMix"]:
             self.perceptual_loss = VGGPerceptualLoss().to(device)
-        if loss_name in ["mix", "bigMix", "gradient"]:
+        if loss_name in ["mix", "bigMix", "gradient", "fflMix"]:
             self.gradient_loss = Gradient_Loss().to(device)
-        if loss_name in ["mix", "bigMix"]:
+        if loss_name in ["mix", "bigMix", "fflMix"]:
             self.ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
-        if loss_name in ["fflCharbonnier"]:
+        if loss_name in ["fflCharbonnier", "fflMix"]:
             self.ffl = FFL(loss_weight=1.0,alpha=1.0).to(device)
+        if loss_name in ["LuminanceCharbonnier"]:
+            self.luminanceLoss = LuminanceLoss().to(device)
 
     def getloss(self, predicted_data, truth_data):
         if self.loss_name == "L1":
@@ -62,10 +66,30 @@ class LossFunction():
             #loss = criterion(outputs, ref_imgs)
         elif self.loss_name == "fflCharbonnier":
             loss = self.ffl(predicted_data, truth_data) + self.charbonnier_loss(predicted_data, truth_data)
+        elif self.loss_name == "fflMix":
+            charb_loss = self.charbonnier_loss(predicted_data, truth_data)
+            perc_loss = self.perceptual_loss(predicted_data, truth_data)
+            grad_loss = self.gradient_loss(predicted_data, truth_data)
+            ffl_loss = self.ffl(predicted_data, truth_data)
+            ssim_loss = 1 - self.ms_ssim_loss(predicted_data, truth_data)
+            losses = torch.stack([charb_loss, perc_loss, grad_loss, ffl_loss, ssim_loss])
+            weights = torch.tensor([0.2, 0.2, 0.2, 0.2, 0.2], device=losses.device)
+
+            loss_scales = torch.log(losses.detach() + 1e-8)
+            loss_scales = torch.softmax(-loss_scales, dim=0)
+            adjusted_weights = weights * loss_scales
+
+            loss = torch.sum(losses * adjusted_weights)
+        elif self.loss_name == "LuminanceCharbonnier":
+            loss = self.luminanceLoss(predicted_data, truth_data)
+            charb_loss = self.charbonnier_loss(predicted_data, truth_data)
+
+            final_loss = loss + charb_loss
+            return final_loss
+
         else:
             raise ValueError(f"Unsupported loss: {self.loss_name}")
 
-        loss = torch.clamp(loss, min=0.0, max=100.0)
         return loss
 
 class Gradient_Loss(nn.Module):
