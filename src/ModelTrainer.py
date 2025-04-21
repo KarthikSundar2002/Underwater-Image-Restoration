@@ -6,7 +6,7 @@ from src.Losses.losses import LossFunction
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
 import time
 from tqdm import tqdm
 
@@ -34,7 +34,8 @@ class ModelTrainer:
         wandb_logger = WandBLogger(args)
         wandb_logger.watch_model(model)
 
-        scheduler = StepLR(optimizer, step_size=512, gamma=0.995)
+        scheduler = StepLR(optimizer, step_size=10, gamma=0.95)
+        #scheduler = CosineAnnealingLR(optimizer, num_epochs, 0.000001)
         best_loss = float('inf')
 
         Training_start_time = time.time()

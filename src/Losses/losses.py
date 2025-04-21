@@ -31,10 +31,13 @@ class LossFunction():
     def getloss(self, predicted_data, truth_data):
         if self.loss_name == "L1":
             loss = self.criterion(predicted_data, truth_data)
+            loss = loss / (truth_data.shape[0] * truth_data.shape[1])
         elif self.loss_name == "L1withColor":
             loss = 0.75 * self.colorLoss(predicted_data, truth_data) + 0.25 * self.criterion(predicted_data, truth_data)
+            loss = loss / (truth_data.shape[0] * truth_data.shape[1])
         elif self.loss_name == "L2":
             loss = self.L2_loss(predicted_data, truth_data)
+            loss = loss / (truth_data.shape[0] * truth_data.shape[1])
         # Calculate loss
         elif self.loss_name == "charbonnier":
             loss = self.charbonnier_loss(predicted_data, truth_data)
@@ -62,7 +65,7 @@ class LossFunction():
         else:
             raise ValueError(f"Unsupported loss: {self.loss_name}")
 
-
+        loss = torch.clamp(loss, min=0.0, max=100.0)
         return loss
 
 class Gradient_Loss(nn.Module):
