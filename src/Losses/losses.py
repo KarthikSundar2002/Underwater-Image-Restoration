@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from pytorch_msssim import MS_SSIM
+from focal_frequency_loss import FocalFrequencyLoss as FFL
 from timm.utils import NativeScaler
 
 
@@ -16,7 +17,7 @@ class LossFunction():
             self.colorLoss = ColorLoss().to(device)
         if loss_name in ["L2"]:
             self.L2_loss = torch.nn.MSELoss()
-        if loss_name in ["mix","bigMix","charbonnier"]:
+        if loss_name in ["mix","bigMix","charbonnier","fflCharbonnier"]:
             self.charbonnier_loss = CharbonnierLoss().to(device)
         if loss_name in ["mix", "bigMix", "perceptual"]:
             self.perceptual_loss = VGGPerceptualLoss().to(device)
@@ -24,6 +25,8 @@ class LossFunction():
             self.gradient_loss = Gradient_Loss().to(device)
         if loss_name in ["mix", "bigMix"]:
             self.ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
+        if loss_name in ["fflCharbonnier"]:
+            self.ffl = FFL(loss_weight=1.0,alpha=1.0).to(device)
 
     def getloss(self, predicted_data, truth_data):
         if self.loss_name == "L1":
@@ -54,6 +57,8 @@ class LossFunction():
             predicted_data, truth_data) + 0.1 * (1 - self.ms_ssim_loss(predicted_data, truth_data))
             #loss = 0.03*charbonnier_loss(ref_imgs,outputs) +0.025*perceptual_loss(outputs,ref_imgs)+0.02*gradient_loss(outputs,ref_imgs)+0.01*(1-ms_ssim_loss(outputs,ref_imgs))
             #loss = criterion(outputs, ref_imgs)
+        elif self.loss_name == "fflCharbonnier":
+            loss = self.ffl(predicted_data, truth_data) + self.charbonnier_loss(predicted_data, truth_data)
         else:
             raise ValueError(f"Unsupported loss: {self.loss_name}")
 
