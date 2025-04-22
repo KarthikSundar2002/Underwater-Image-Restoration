@@ -13,13 +13,10 @@ class LossFunction():
     def __init__(self, loss_name, device):
         self.loss_name = loss_name
 
-        if loss_name in ["L1","L1withColor"]:
+        if loss_name in ["L1","L1withColor","L1ColorLum"]:
             self.criterion = torch.nn.L1Loss()
-        if loss_name in ["L1withColor"]:
+        if loss_name in ["L1withColor", "L1ColorLum"]:
             self.colorLoss = ColorLoss().to(device)
-        if loss_name in ["L1ColorLum"]:
-            self.colorLoss = ColorLoss().to(device)
-            self.luminanceLoss = LuminanceLoss().to(device)
         if loss_name in ["L2"]:
             self.L2_loss = torch.nn.MSELoss()
         if loss_name in ["mix","bigMix","charbonnier","fflCharbonnier", "fflMix", "LuminanceCharbonnier"]:
@@ -32,7 +29,7 @@ class LossFunction():
             self.ms_ssim_loss = MS_SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3).to(device)
         if loss_name in ["fflCharbonnier", "fflMix"]:
             self.ffl = FFL(loss_weight=1.0,alpha=1.0).to(device)
-        if loss_name in ["LuminanceCharbonnier"]:
+        if loss_name in ["LuminanceCharbonnier", "L1ColorLum"]:
             self.luminanceLoss = LuminanceLoss().to(device)
 
     def getloss(self, predicted_data, truth_data):
