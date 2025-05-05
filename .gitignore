@@ -15,3 +15,10 @@ Images/*
 Spectroformer-500/*
 Spectroformer-Charbonnier Loss/*
 Spectroformer-Collapse-lr0.003/*
+best_newModel-FFL_709.pth
+best_spectral_transformer_1016.pth
+best_spectral_transformer.pth
+LATEST_NewModel-FFL-709.pth
+latest_spectroformer_1016.pth
+latest_spectroformer.pth
+uw_data/

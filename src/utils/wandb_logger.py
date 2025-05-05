@@ -34,16 +34,20 @@ class WandBLogger:
         if self.enabled:
             step = epoch * trainloader_len + batch_idx
             wandb.log(metrics, step=step)
-    
+
     def log_test_metrics(self, metrics):
         if self.enabled and not self.args.evaluate:  # Only log during training runs
             wandb.log(metrics)
-    
     def format_train_metrics(
         self, loss, learning_rate):
         return {
             "train/loss": loss,
             "train/learning_rate": learning_rate,
+        }
+
+    def format_loss_metrics(self, loss, loss_name):
+        return {
+            "train/loss_"+loss_name: loss,
         }
     
     def format_test_metrics(self, loss, epoch_time):

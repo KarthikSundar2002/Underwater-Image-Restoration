@@ -1,5 +1,6 @@
 # Copyright (c) EEEM071, University of Surrey
 from src.model.model import MyModel as NewModel
+from src.model.model import MyBigModel as NewBigModel
 from .SpectralTransformer import (
     SpectralTransformer,
 )
@@ -8,6 +9,7 @@ from src.Models.AST import AST
 __model_factory = {
     "SpectralTransformer": SpectralTransformer,
     "NewModel": NewModel,
+    "NewBigModel": NewBigModel,
     "AST": AST
 }
 

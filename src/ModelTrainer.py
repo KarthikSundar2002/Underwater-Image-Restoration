@@ -6,35 +6,40 @@ from src.Losses.losses import LossFunction
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, MultiStepLR
 import time
 from tqdm import tqdm
 
 from src.utils.wandb_logger import WandBLogger
-from src.utils.Visualiser import ProcessImageUsingModel
+from src.utils.Visualiser import ProcessImageUsingModel, save_from_tensor
+
 
 class ModelTrainer:
-    def __init__(self, inputDirectory, referenceDirectory):
+    def __init__(self, inputDirectory, referenceDirectory, testInputDirectory, testReferenceDirectory,):
         self.inputDir = inputDirectory
         self.referenceDir = referenceDirectory
+        self.testInputDir = testInputDirectory
+        self.testReferenceDir = testReferenceDirectory
 
     def train(self, args, arch="SpectroFormer", num_epochs=10, learning_rate=0.001, device="cuda" if torch.cuda.is_available() else "cpu"):
         if not device =="cuda":
             print(f"WARNING, NOT USING CUDA. Using device: {device}")
 
         print("Preparing data loaders...batch size" + str(args.train_batch_size))
-        train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir, args.train_batch_size)
+        train_loader, test_loader = get_dataloaders(self.inputDir, self.referenceDir,self.testInputDir,self.testReferenceDir ,args.train_batch_size)
 
         print("Initializing model...")
         model = Models.init_model(name=arch, use_dwt=args.use_dwt)
         model = model.to(device)
-        lossfunction = LossFunction(args.lossf, device)
-        optimizer = self.getOptimizer(args, learning_rate, model)
-
         wandb_logger = WandBLogger(args)
         wandb_logger.watch_model(model)
+        lossfunction = LossFunction(args.lossf, device, wandb_logger)
+        optimizer = self.getOptimizer(args, learning_rate, model)
 
-        scheduler = StepLR(optimizer, step_size=10, gamma=0.95)
+
+
+
+        scheduler = StepLR(optimizer, step_size=1000, gamma=0.995)
         #scheduler = CosineAnnealingLR(optimizer, num_epochs, 0.000001)
         best_loss = float('inf')
 
@@ -52,12 +57,19 @@ class ModelTrainer:
             start_time = time.time()
 
             for batch, (raw_imgs, ref_imgs) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}")):
+                #print(f"Input Image Shape {raw_imgs.shape}",)
+                #save_from_tensor(directory,f"input_img_{epoch}",raw_imgs)
+
                 raw_imgs = raw_imgs.to(device)
                 ref_imgs = ref_imgs.to(device)
-
+                
                 optimizer.zero_grad()
                 outputs = model(raw_imgs)
-                loss = lossfunction.getloss(outputs, ref_imgs)
+                #print(f"Output Shape: {outputs.shape}")
+                if args.lossf != "fflMix":
+                    loss = lossfunction.getloss(outputs, ref_imgs)
+                else:
+                    loss, charb_loss, perc_loss, grad_loss, ffl_loss, ssim_loss = lossfunction.getloss(outputs, ref_imgs)
                 loss.backward()
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
@@ -73,7 +85,32 @@ class ModelTrainer:
                     optimizer.param_groups[0]["lr"],
                 )
                 wandb_logger.log_train_metrics(metrics, epoch, batch, len(train_loader))
-
+                if args.lossf == "fflMix":
+                    perc_loss_metric = wandb_logger.format_loss_metrics(
+                        perc_loss.item(),
+                        "Charbonnier",
+                    )
+                    wandb_logger.log_train_metrics(perc_loss_metric, epoch, batch, len(train_loader))
+                    perc_loss_metric = wandb_logger.format_loss_metrics(
+                        perc_loss.item(),
+                        "Perceptual",
+                    )
+                    wandb_logger.log_train_metrics(perc_loss_metric, epoch, batch, len(train_loader))
+                    grad_loss_metric = wandb_logger.format_loss_metrics(
+                        grad_loss.item(),
+                        "Gradient Loss",
+                    )
+                    wandb_logger.log_train_metrics(grad_loss_metric, epoch, batch, len(train_loader))
+                    ffl_loss_metric = wandb_logger.format_loss_metrics(
+                        ffl_loss.item(),
+                        "FFL Loss",
+                    )
+                    wandb_logger.log_train_metrics(ffl_loss_metric, epoch, batch, len(train_loader))
+                    ssim_loss_metric = wandb_logger.format_loss_metrics(
+                        ssim_loss.item(),
+                        "MS_SSIM Loss",
+                    )
+                    wandb_logger.log_train_metrics(ssim_loss_metric, epoch, batch, len(train_loader))
             avg_epoch_loss = epoch_loss / len(train_loader)
             epoch_time = time.time() - start_time
             print(f"Epoch {epoch + 1}/{num_epochs} completed in {epoch_time:.2f}s, Avg Loss: {avg_epoch_loss:.6f}")
@@ -88,8 +125,10 @@ class ModelTrainer:
                         ref_imgs = ref_imgs.to(device)
 
                         outputs = model(raw_imgs)
-
-                        loss = lossfunction.getloss(outputs, ref_imgs)
+                        if args.lossf != "fflMix":
+                            loss = lossfunction.getloss(outputs, ref_imgs)
+                        else:
+                            loss, charb_loss, perc_loss, grad_loss, ffl_loss, ssim_loss = lossfunction.getloss(outputs, ref_imgs)
                         val_loss +=  loss.item()
 
                 avg_val_loss = val_loss / len(test_loader)
@@ -109,25 +148,29 @@ class ModelTrainer:
         best_loss_epoch = avg_val_loss < best_loss
         # Save model if it's the best so far
         fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
+        if os.path.exists(directory):
+            os.makedirs(directory)
         if best_loss_epoch:
             best_loss = avg_val_loss
+
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': best_loss,
-            }, 'best_spectral_transformer.pth')
+            }, directory + 'best_spectral_transformer.pth')
             print(f"Model saved with loss: {best_loss:.6f}")
             with torch.no_grad():
                 # ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
                 ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Epoch {epoch}_ Best True", wandb_logger)
 
         else:
+            
             torch.save({'epoch': epoch,
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'loss': avg_val_loss,
-                        }, 'latest_spectroformer.pth')
+                        }, directory + 'latest_spectroformer.pth')
             with torch.no_grad():
                 ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Epoch {epoch}_ Best False", wandb_logger)
 

@@ -50,8 +50,10 @@ def main():
         print("Initializing image data manager")
         # rawImageDirectory = "../data/kaggle/manipulated/uieb-dataset-raw"
         # referenceImageDirectory = "../data/kaggle/manipulated/uieb-dataset-reference"
-        rawImageDirectory = "data/uw_data/uw_data/manipulated/1imagea"
-        referenceImageDirectory = "data/uw_data/uw_data/manipulated/1imageb"
+        #rawImageDirectory = "data/uw_data/uw_data/manipulated/a"
+        #referenceImageDirectory = "data/uw_data/uw_data/manipulated/b"
+        rawImageDirectory = "uw_data/uw_data/train/a"
+        referenceImageDirectory = "uw_data/uw_data/train/b"
         dm = dataManager.DataManager()
 
         dm.setDownloadedLocations(
@@ -65,8 +67,9 @@ def main():
         print("Starting training")
         print(f"Raw Data Directory: {dm.currentRawDataDirectory}")
         print(f"Reference Image Directory: {dm.currentReferenceDataDirectory}")
-
-        trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory)
+        test_dir = "uw_data/uw_data/test/a"
+        test_ref = "uw_data/uw_data/test/b"
+        trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory,test_dir, test_ref)
         trainer.train(args, args.arch ,args.max_epoch, args.lr)
     else:
         pthFileLocation = "best_spectral_transformer.pth"
