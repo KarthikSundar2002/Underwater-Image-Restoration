@@ -50,9 +50,11 @@ class WandBLogger:
             "train/loss_"+loss_name: loss,
         }
     
-    def format_test_metrics(self, loss, epoch_time):
+    def format_test_metrics(self, loss,psnr,ssim,epoch_time):
         return {
             "test/loss": loss,
+            "test/PSNR": psnr,
+            "test/SSIM": ssim,
             "test/epochTime": epoch_time,
         }
 

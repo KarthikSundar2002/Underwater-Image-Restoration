@@ -6,13 +6,22 @@ from src.Losses.losses import LossFunction
 from src import Models
 from src.DataManipulation.DataLoader import get_dataloaders
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, MultiStepLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, MultiStepLR, ReduceLROnPlateau
 import time
 from tqdm import tqdm
 
 from src.utils.wandb_logger import WandBLogger
 from src.utils.Visualiser import ProcessImageUsingModel, save_from_tensor
 
+from pytorch_msssim import ssim
+def torchPSNR(tar_img, prd_img):
+    imdff = torch.clamp(prd_img, 0, 1) - torch.clamp(tar_img, 0, 1)
+    rmse = (imdff**2).mean().sqrt()
+    ps = 20*torch.log10(1/rmse)
+    return ps
+
+def torchSSIM(tar_img, prd_img):
+    return ssim(tar_img, prd_img, data_range=1.0, size_average=True)
 
 class ModelTrainer:
     def __init__(self, inputDirectory, referenceDirectory, testInputDirectory, testReferenceDirectory,):
@@ -39,16 +48,18 @@ class ModelTrainer:
 
 
 
-        scheduler = StepLR(optimizer, step_size=1000, gamma=0.995)
+        #scheduler = StepLR(optimizer, step_size=1000, gamma=0.995)
         #scheduler = CosineAnnealingLR(optimizer, num_epochs, 0.000001)
+        #scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.25)
+        scheduler = MultiStepLR(optimizer, milestones=[1,100,250], gamma=0.25)
         best_loss = float('inf')
 
         Training_start_time = time.time()
         fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
-        directory = f"{args.lossf}-{args.lr}-{args.arch}-{Training_start_time}//"
+        directory = f"{args.lossf}-{args.lr}-{args.arch}-{Training_start_time}-{args.use_dwt}//"
 
-        with torch.no_grad():#Write out image based on model initialization only
-            ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Model Output without Training", wandb_logger)
+        # with torch.no_grad():#Write out image based on model initialization only
+        #     ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Model Output without Training", wandb_logger)
 
         print(f"Starting training for {num_epochs} epochs...")
         for epoch in range(num_epochs):
@@ -73,7 +84,7 @@ class ModelTrainer:
                 loss.backward()
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
-                scheduler.step()
+
                 epoch_loss += loss.item()
 
                 # Print progress every 10 batches
@@ -113,12 +124,15 @@ class ModelTrainer:
                     wandb_logger.log_train_metrics(ssim_loss_metric, epoch, batch, len(train_loader))
             avg_epoch_loss = epoch_loss / len(train_loader)
             epoch_time = time.time() - start_time
+            scheduler.step()
             print(f"Epoch {epoch + 1}/{num_epochs} completed in {epoch_time:.2f}s, Avg Loss: {avg_epoch_loss:.6f}")
 
-            if (epoch + 1) % 4 == 0:
+            if (epoch + 1) % 1 == 0:
                 # Validation phase
                 model.eval()
                 val_loss = 0
+                psnr = 0
+                ssim = 0
                 with torch.no_grad():
                     for raw_imgs, ref_imgs in test_loader:
                         raw_imgs = raw_imgs.to(device)
@@ -129,12 +143,16 @@ class ModelTrainer:
                             loss = lossfunction.getloss(outputs, ref_imgs)
                         else:
                             loss, charb_loss, perc_loss, grad_loss, ffl_loss, ssim_loss = lossfunction.getloss(outputs, ref_imgs)
+                        psnr += torchPSNR(ref_imgs,outputs)
+                        ssim += torchSSIM(ref_imgs,outputs)
                         val_loss +=  loss.item()
 
                 avg_val_loss = val_loss / len(test_loader)
+                #scheduler.step(avg_val_loss)
                 print(f"Validation Loss: {avg_val_loss:.6f}")
-
-                metrics = wandb_logger.format_test_metrics(avg_val_loss,epoch_time)
+                avg_psnr = psnr / len(test_loader)
+                avg_ssim = ssim / len(test_loader)
+                metrics = wandb_logger.format_test_metrics(avg_val_loss,avg_psnr,avg_ssim,epoch_time)
                 wandb_logger.log_test_metrics(metrics)
 
                 self.SaveModel(avg_val_loss, best_loss, directory, epoch, model, optimizer, wandb_logger)
@@ -148,7 +166,7 @@ class ModelTrainer:
         best_loss_epoch = avg_val_loss < best_loss
         # Save model if it's the best so far
         fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
-        if os.path.exists(directory):
+        if not os.path.exists(directory):
             os.makedirs(directory)
         if best_loss_epoch:
             best_loss = avg_val_loss
@@ -158,7 +176,7 @@ class ModelTrainer:
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': best_loss,
-            }, directory + 'best_spectral_transformer.pth')
+            }, directory + f'best_spectral_transformer_{epoch}.pth')
             print(f"Model saved with loss: {best_loss:.6f}")
             with torch.no_grad():
                 # ProcessImageUsingModel('cuda', fileToTest, model,"Best" )

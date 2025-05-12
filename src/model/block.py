@@ -43,7 +43,9 @@ class InputProjection(nn.Module):
     def __init__(self, in_channels=3, out_channels=64, kernel_size=3, stride=1, norm_layer=None, act_layer=nn.LeakyReLU):
         super().__init__()
         self.proj = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
+            nn.Conv2d(in_channels=in_channels, out_channels=8, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
+            nn.Conv2d(in_channels=8, out_channels=32, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
+            nn.Conv2d(in_channels=32, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
             act_layer(inplace=True) if act_layer is not None else nn.Identity(),
         )
         if norm_layer is not None:
@@ -64,7 +66,9 @@ class OutputProjection(nn.Module):
     def __init__(self, in_channels=64, out_channel=3, kernel_size=3, stride=1, norm_layer=None, act_layer=None):
         super().__init__()
         self.proj = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=out_channel, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
+            nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
+            nn.Conv2d(in_channels=32, out_channels=8, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
+            nn.Conv2d(in_channels=8, out_channels=out_channel, kernel_size=kernel_size, stride=stride, padding=kernel_size//2),
         )
         if act_layer is not None:
             self.act = act_layer(inplace=True)
@@ -88,35 +92,67 @@ class OutputProjection(nn.Module):
             out = self.act(out)
         return out
     
+# class Downsample(nn.Module):
+#     def __init__(self, in_channel, out_channel):
+#         super().__init__()
+#         self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=4, stride=2, padding=1)
+#         self.in_channel = in_channel
+#         self.out_channel = out_channel
+#
+#     def forward(self, x):
+#         B, L, C = x.shape
+#         H = W = int(math.sqrt(L))
+#         x = x.transpose(1, 2).reshape(B, C, H, W).contiguous()
+#         out = self.conv(x).flatten(2).transpose(1, 2).contiguous()
+#         return out
+
 class Downsample(nn.Module):
-    def __init__(self, in_channel, out_channel):
-        super().__init__()
-        self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=4, stride=2, padding=1)
-        self.in_channel = in_channel
-        self.out_channel = out_channel
-    
+    def __init__(self, channels, out_channels):
+        super(Downsample, self).__init__()
+        self.body = nn.Sequential(nn.Conv2d(channels, channels // 2, kernel_size=3, padding=1, bias=False),
+                                  nn.PixelUnshuffle(2))
+
     def forward(self, x):
-        B, L, C = x.shape
-        H = W = int(math.sqrt(L))
-        x = x.transpose(1, 2).reshape(B, C, H, W).contiguous()
-        out = self.conv(x).flatten(2).transpose(1, 2).contiguous()
+        h = int(math.sqrt(x.shape[1]))
+
+        y = rearrange(x, "b (h w) c -> b c h w", h=h, w=h)
+
+        y = self.body(y)
+
+        out = rearrange(y, "b c h w -> b (h w) c")
+
         return out
     
+# class Upsample(nn.Module):
+#     def __init__(self, in_channel, out_channel):
+#         super().__init__()
+#         self.conv = nn.ConvTranspose2d(in_channel, out_channel, kernel_size=4, stride=2, padding=1)
+#         self.in_channel = in_channel
+#         self.out_channel = out_channel
+#
+#     def forward(self, x):
+#         B, L, C = x.shape
+#         H = W = int(math.sqrt(L))
+#         x = x.transpose(1, 2).reshape(B, C, H, W).contiguous()
+#         out = self.conv(x).flatten(2).transpose(1, 2).contiguous()
+#         return out
+
 class Upsample(nn.Module):
-    def __init__(self, in_channel, out_channel):
-        super().__init__()
-        self.conv = nn.ConvTranspose2d(in_channel, out_channel, kernel_size=4, stride=2, padding=1)
-        self.in_channel = in_channel
-        self.out_channel = out_channel
+    def __init__(self, channels, out_channels):
+        super(Upsample, self).__init__()
+        self.body = nn.Sequential(nn.Conv2d(channels, channels * 2, kernel_size=3, padding=1, bias=False),
+                                  nn.PixelShuffle(2))
 
     def forward(self, x):
-        B, L, C = x.shape
-        H = W = int(math.sqrt(L))
-        x = x.transpose(1, 2).reshape(B, C, H, W).contiguous()
-        out = self.conv(x).flatten(2).transpose(1, 2).contiguous()
+        h = int(math.sqrt(x.shape[1]))
+
+        y = rearrange(x,"b (h w) c -> b c h w", h=h, w=h)
+
+        y = self.body(y)
+
+        out = rearrange(y, "b c h w -> b (h w) c")
+
         return out
-
-
 
 class LinearProjection(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, bias=True):
@@ -216,7 +252,7 @@ class FRFN(nn.Module):
     def __init__(self, dim=32, hidden_dim=128, act_layer=nn.GELU, drop=0., use_eca=False):
         super().__init__()
         self.linear1 = nn.Sequential(nn.Linear(dim, hidden_dim*2), act_layer())
-        self.dwconv = nn.Sequential((nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, kernel_size=3, stride=1, padding=1), act_layer()))
+        self.dwconv = nn.Sequential(nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, kernel_size=3, stride=1, padding=1), act_layer())
         self.linear2 = nn.Sequential(nn.Linear(hidden_dim, dim))
         self.dim = dim
         self.hidden_dim = hidden_dim
