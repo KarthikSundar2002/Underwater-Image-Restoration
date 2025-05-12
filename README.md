@@ -133,9 +133,8 @@ python main.py -a SpectralTransformer --lr 0.0003 --max-epoch 2500 --lossf L1wit
 
 ### **Evaluation Example**
 
-```bash
-python main.py --evaluate --load-weights path/to/checkpoint.pth
-```
+To evaluate, fill the model path, variable in the first cell of the eval.ipynb and then run it to get the PSNR and generate the test images. You can run the subsequent cells to get 
+
 
 ---
 
