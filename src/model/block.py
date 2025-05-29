@@ -82,9 +82,7 @@ class OutputProjection(nn.Module):
         self.out_channel = out_channel
     
     def forward(self, x):
-        B, L, C = x.shape
-        H = W = int(math.sqrt(L))
-        x = x.transpose(1, 2).reshape(B, C, H, W).contiguous()
+        
         out = self.proj(x)
         if self.norm is not None:
             out = self.norm(out)

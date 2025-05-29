@@ -218,7 +218,7 @@ class MyModel(nn.Module):
                                         act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=16, use_dwt=use_dwt) 
         
         self.output_proj = OutputProjection(in_channels=embed_dim, out_channel=dd_in, kernel_size=3, stride=1, norm_layer=None, act_layer=None)
-
+        self.adaptive_pool_1 = nn.AdaptiveAvgPool2d(256*256*3)
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -233,6 +233,8 @@ class MyModel(nn.Module):
     def forward(self, x, mask=None):
         if mask is not None:
             x = x * mask
+        
+        # x = self.adaptive_pool_1(x)
         # Input - x: (B, C, H, W) - B, 3, 256, 256
         y = self.input_proj(x)
         # print(f"Input Projection shape: {y.shape}")
@@ -370,6 +372,8 @@ class MyBigModel(nn.Module):
 
         self.output_proj = OutputProjection(in_channels=embed_dim, out_channel=dd_in, kernel_size=3, stride=1,
                                             norm_layer=None, act_layer=None)
+        
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((256,256))
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -386,6 +390,9 @@ class MyBigModel(nn.Module):
         if mask is not None:
             x = x * mask
         # Input - x: (B, C, H, W) - B, 3, 256, 256
+        B,C,H,W = x.shape
+        out_skip = x
+        x = self.adaptive_pool(x)
         y = self.input_proj(x)
 
         # y - y: (B, L, C) - B, 256*256, 32
@@ -424,10 +431,14 @@ class MyBigModel(nn.Module):
 
         dec0 = self.decoder_0(up0, enc_out=conv0)
         dec0 = self.decoder_0_1(dec0)
-
+        b, l, c = dec0.shape
+        h = w = int(math.sqrt(l))
+        dec0 = dec0.transpose(1, 2).reshape(b, c, h, w).contiguous()
+        dec0 = torch.nn.ConstantPad2d((W-dec0.shape[-1],0,H-dec0.shape[-2],0),0)(dec0)
         out = self.output_proj(dec0)
-
-        out = out + x
+        
+        out = out + out_skip
+       
         return out
 
 class MyBigFRFNModel(nn.Module):
