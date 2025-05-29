@@ -42,11 +42,12 @@ class ModelTrainer:
         model = model.to(device)
         wandb_logger = WandBLogger(args)
         wandb_logger.watch_model(model)
-        lossfunction = LossFunction(args.lossf, device, wandb_logger)
+        lossfunction = LossFunction(args.lossf, device)
         optimizer = self.getOptimizer(args, learning_rate, model)
 
-
-
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                print(name, param.data.shape)
 
         #scheduler = StepLR(optimizer, step_size=1000, gamma=0.995)
         #scheduler = CosineAnnealingLR(optimizer, num_epochs, 0.000001)
@@ -55,7 +56,7 @@ class ModelTrainer:
         best_loss = float('inf')
 
         Training_start_time = time.time()
-        fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
+        fileToTest = "uw_data/uw_data/train/a/6_img_.png"
         directory = f"{args.lossf}-{args.lr}-{args.arch}-{Training_start_time}-{args.use_dwt}//"
 
         # with torch.no_grad():#Write out image based on model initialization only
@@ -76,6 +77,7 @@ class ModelTrainer:
                 
                 optimizer.zero_grad()
                 outputs = model(raw_imgs)
+
                 #print(f"Output Shape: {outputs.shape}")
                 if args.lossf != "fflMix":
                     loss = lossfunction.getloss(outputs, ref_imgs)
@@ -155,17 +157,17 @@ class ModelTrainer:
                 metrics = wandb_logger.format_test_metrics(avg_val_loss,avg_psnr,avg_ssim,epoch_time)
                 wandb_logger.log_test_metrics(metrics)
 
-                self.SaveModel(avg_val_loss, best_loss, directory, epoch, model, optimizer, wandb_logger)
+                self.SaveModel(avg_val_loss, best_loss, directory, epoch, model, optimizer)
 
         print("Training completed!")
         wandb_logger.finish()
 
         return model
 
-    def SaveModel(self, avg_val_loss, best_loss, directory, epoch, model, optimizer, wandb_logger):
+    def SaveModel(self, avg_val_loss, best_loss, directory, epoch, model, optimizer):
         best_loss_epoch = avg_val_loss < best_loss
         # Save model if it's the best so far
-        fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/6_img_.png"
+        fileToTest = "uw_data/uw_data/train/a/6_img_.png"
         if not os.path.exists(directory):
             os.makedirs(directory)
         if best_loss_epoch:
@@ -180,7 +182,7 @@ class ModelTrainer:
             print(f"Model saved with loss: {best_loss:.6f}")
             with torch.no_grad():
                 # ProcessImageUsingModel('cuda', fileToTest, model,"Best" )
-                ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Epoch {epoch}_ Best True", wandb_logger)
+                ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Epoch {epoch}_ Best True")
 
         else:
             
@@ -190,7 +192,7 @@ class ModelTrainer:
                         'loss': avg_val_loss,
                         }, directory + 'latest_spectroformer.pth')
             with torch.no_grad():
-                ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Epoch {epoch}_ Best False", wandb_logger)
+                ProcessImageUsingModel('cuda', fileToTest, model, directory, f"Epoch {epoch}_ Best False")
 
     def getOptimizer(self, args, learning_rate, model):
         if args.optim == "adam":

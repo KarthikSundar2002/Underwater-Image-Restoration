@@ -1,17 +1,18 @@
 import os
 
-import cv2
+#import cv2
 import numpy as np
 import torch
-import wandb
+# import wandb
 from PIL import Image
 from matplotlib import pyplot as plt
 from torchvision.transforms import transforms, InterpolationMode
 
+from src import Models
 from src.Models import SpectralTransformer
 
 
-def ProcessImageUsingModel(device, fileToTest, model, directory, saveName, wandb_logger):
+def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     # img = cv2.imread(fileToTest)
     # rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     rgb = Image.open(fileToTest)
@@ -29,7 +30,7 @@ def ProcessImageUsingModel(device, fileToTest, model, directory, saveName, wandb
     result = model(input_tensor)
     result_cpu = result.detach().cpu()
     res = save_from_tensor(directory, saveName, result_cpu)
-    wandb_logger.log_image(res, name=saveName)
+    # wandb_logger.log_image(res, name=saveName)
     return rgb
 
 def save_from_tensor(directory, saveName, result_cpu):
@@ -60,8 +61,8 @@ def save_from_tensor(directory, saveName, result_cpu):
     return res
 
 
-def loadModelFromWeights(device, pthFileLocation):
-    model = SpectralTransformer()
+def loadModelFromWeights(device, pthFileLocation, args, arch):
+    model = Models.init_model(name=arch, use_dwt=args.use_dwt)
     model.load_state_dict(torch.load(pthFileLocation, weights_only=True)["model_state_dict"])
     model.to(device)
     return model

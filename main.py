@@ -4,14 +4,10 @@ import os.path as osp
 import sys
 import time
 import warnings
-import cv2
 import src.ModelTrainer as mt
-import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from args import argument_parser, dataset_kwargs, optimizer_kwargs, lr_scheduler_kwargs
-from src.Models.SpectralTransformer import SpectralTransformer
-from src import Models
+from args import argument_parser
 from matplotlib import pyplot as plt
 
 from src.utils.Visualiser import loadModelFromWeights, ProcessImageUsingModel
@@ -22,6 +18,7 @@ parser = argument_parser()
 args = parser.parse_args()
 
 def main():
+    print(torch.__version__)
     global args
     print(args.evaluate)
 
@@ -72,17 +69,29 @@ def main():
         trainer = mt.ModelTrainer(dm.currentRawDataDirectory, dm.currentReferenceDataDirectory,test_dir, test_ref)
         trainer.train(args, args.arch ,args.max_epoch, args.lr)
     else:
-        pthFileLocation = "best_spectral_transformer.pth"
-        fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+        print("Evaluating...")
+        input_dir = "image_in/"
+        output_dir = "image_out/"
+        model_path = "fflMix-0.0003-NewBigModel-1748292271.4851427-Wavelet/best_spectral_transformer_128.pth"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if not os.path.exists(input_dir):
+            os.makedirs(input_dir)
 
         device = "cuda" if use_gpu else "cpu"
 
-        model = loadModelFromWeights(device, pthFileLocation)
+        model = loadModelFromWeights(device, model_path, args, args.arch)
 
-        imarray = ProcessImageUsingModel(device, fileToTest, model)
+        input_files = os.listdir(input_dir)
 
-        plt.imshow(imarray, interpolation='nearest', cmap = plt.cm.Spectral)
-        plt.savefig("ReferenceImage.png")
+        print(f'Number of input images: {len(input_files)}')
+        for file in input_files:
+            print(f'Processing {file}')
+        # fileToTest = "data/kaggle/manipulated/uieb-dataset-raw/2_img_.png"
+            imarray = ProcessImageUsingModel(device, input_dir + file, model, output_dir, file)
+            # plt.imshow(imarray, interpolation='nearest', cmap = plt.cm.Spectral)
+            # plt.savefig("ReferenceImage.png")
+
 
 if __name__ == "__main__":
     main()

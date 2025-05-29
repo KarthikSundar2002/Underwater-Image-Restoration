@@ -8,7 +8,6 @@ from torch.nn import init
 import numpy as np
 import math
 from PIL import Image
-import cv2
 
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in [".png", ".jpg", ".jpeg"])

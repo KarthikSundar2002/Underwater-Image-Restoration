@@ -28,9 +28,8 @@ class TVLoss(nn.Module):
         return t.size()[1] * t.size()[2] * t.size()[3]
 
 class LossFunction():
-    def __init__(self, loss_name, device, wandb_logger):
+    def __init__(self, loss_name, device):
         self.loss_name = loss_name
-        self.logger = wandb_logger
         if loss_name in ["L1","L1withColor"]:
             self.criterion = torch.nn.L1Loss()
         if loss_name in ["L1withColor", "L1ColorLum"]:
