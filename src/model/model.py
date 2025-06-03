@@ -373,17 +373,7 @@ class MyBigModel(nn.Module):
 
         self.output_proj = OutputProjection(in_channels=embed_dim, out_channel=dd_in, kernel_size=3, stride=1,
                                             norm_layer=None, act_layer=None)
-        
-        self.adaptive_pool = nn.AdaptiveAvgPool2d((256,256))
 
-        self.conv_super_enc = nn.Conv2d(in_channels=3,out_channels=8, kernel_size=3, stride=2, padding=1)
-        self.conv_super_enc1 = nn.Conv2d(in_channels=8,out_channels=16, kernel_size=3, stride=2, padding=1)
-        self.conv_super_enc2 = nn.Conv2d(in_channels=16,out_channels=32, kernel_size=3, stride=2, padding=1)
-
-        # self.conv_super_dec3 = nn.ConvTranspose2d(in_channels=32,out_channels=32, kernel_size=3,stride=2,padding=1,output_padding=1)
-        self.conv_super_dec2 = nn.ConvTranspose2d(in_channels=32,out_channels=16, kernel_size=3,stride=2,padding=1,output_padding=1)
-        self.conv_super_dec1 = nn.ConvTranspose2d(in_channels=16,out_channels=8, kernel_size=3, stride=2, padding=1,output_padding=1)
-        self.conv_super_dec = nn.ConvTranspose2d(in_channels=8,out_channels=3, kernel_size=3, stride=2, padding=1,output_padding=1)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):

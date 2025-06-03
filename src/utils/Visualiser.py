@@ -17,8 +17,8 @@ def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     # rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     rgb = Image.open(fileToTest).convert("RGB")
 
-    transform = transforms.Compose([transforms.Resize((1024, 1024), InterpolationMode.BICUBIC), transforms.ToTensor(),
-                                    ])
+    transform = transforms.Compose([transforms.Resize((256, 256), InterpolationMode.BICUBIC), transforms.ToTensor(),
+                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     #img_array = np.array(rgb)
     #input_tensor = torch.from_numpy(img_array)
     #input_tensor = input_tensor.permute(2, 0, 1)
