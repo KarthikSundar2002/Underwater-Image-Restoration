@@ -14,3 +14,4 @@ PyWavelets~=1.8.0
 pytorch_msssim
 focal_frequency_loss
 matplotlib
+scikit-image

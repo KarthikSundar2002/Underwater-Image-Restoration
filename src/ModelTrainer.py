@@ -45,9 +45,9 @@ class ModelTrainer:
         lossfunction = LossFunction(args.lossf, device)
         optimizer = self.getOptimizer(args, learning_rate, model)
 
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                print(name, param.data.shape)
+        # for name, param in model.named_parameters():
+        #     if param.requires_grad:
+        #         print(name, param.data.shape)
 
         #scheduler = StepLR(optimizer, step_size=1000, gamma=0.995)
         #scheduler = CosineAnnealingLR(optimizer, num_epochs, 0.000001)

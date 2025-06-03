@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.fft as fft
+import torchvision.transforms.functional
 
 from timm.layers import DropPath, to_2tuple, trunc_normal_
 from einops import rearrange
@@ -375,6 +376,15 @@ class MyBigModel(nn.Module):
         
         self.adaptive_pool = nn.AdaptiveAvgPool2d((256,256))
 
+        self.conv_super_enc = nn.Conv2d(in_channels=3,out_channels=8, kernel_size=3, stride=2, padding=1)
+        self.conv_super_enc1 = nn.Conv2d(in_channels=8,out_channels=16, kernel_size=3, stride=2, padding=1)
+        self.conv_super_enc2 = nn.Conv2d(in_channels=16,out_channels=32, kernel_size=3, stride=2, padding=1)
+
+        # self.conv_super_dec3 = nn.ConvTranspose2d(in_channels=32,out_channels=32, kernel_size=3,stride=2,padding=1,output_padding=1)
+        self.conv_super_dec2 = nn.ConvTranspose2d(in_channels=32,out_channels=16, kernel_size=3,stride=2,padding=1,output_padding=1)
+        self.conv_super_dec1 = nn.ConvTranspose2d(in_channels=16,out_channels=8, kernel_size=3, stride=2, padding=1,output_padding=1)
+        self.conv_super_dec = nn.ConvTranspose2d(in_channels=8,out_channels=3, kernel_size=3, stride=2, padding=1,output_padding=1)
+
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -391,6 +401,7 @@ class MyBigModel(nn.Module):
             x = x * mask
         # Input - x: (B, C, H, W) - B, 3, 256, 256
         B,C,H,W = x.shape
+        # print(x.shape)
         out_skip = x
         x = self.adaptive_pool(x)
         y = self.input_proj(x)
@@ -434,11 +445,31 @@ class MyBigModel(nn.Module):
         b, l, c = dec0.shape
         h = w = int(math.sqrt(l))
         dec0 = dec0.transpose(1, 2).reshape(b, c, h, w).contiguous()
-        dec0 = torch.nn.ConstantPad2d((W-dec0.shape[-1],0,H-dec0.shape[-2],0),0)(dec0)
+        # yh = math.sqrt(y.shape[1])
+        # yw = math.sqrt(y.shape[1])
+        # y = y.view(y.shape[0], y.shape[2], int(yh), int(yw))
+        # dec0 = dec0 + y
+        # dec0 = torch.nn.ConstantPad2d((W-dec0.shape[-1],0,H-dec0.shape[-2],0),0)(dec0)
+        # dec0 = torchvision.transforms.functional.resize((dec0),(H,W))
         out = self.output_proj(dec0)
         
-        out = out + out_skip
-       
+        out = out + x
+        out = torchvision.transforms.functional.resize((out),(H,W))
+        # print(out.shape)
+        out_c1 = self.conv_super_enc(out)
+        # print(out_c1.shape)
+        out_c2 = self.conv_super_enc1(out_c1)
+        # print(out_c2.shape)
+        out_c3 = self.conv_super_enc2(out_c2)
+        # print(out_c3.shape)
+        # dec_c3 = self.conv_super_dec3(out_c3)
+        dec_c2 = self.conv_super_dec2(out_c3)
+        # print(dec_c2.shape)
+        dec_c1 = self.conv_super_dec1(dec_c2+out_c2)#
+        # print(dec_c1.shape)
+        y = self.conv_super_dec(dec_c1 + out_c1)
+        # print(out.shape)
+        out = out + y
         return out
 
 class MyBigFRFNModel(nn.Module):

@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-    <option name="PARAMETERS" value="-a NewBigModel --lr 0.00005 --max-epoch 2500 --lossf fflMix --train-batch-size 1 --use-dwt Wavelet" />
+    <option name="PARAMETERS" value="-a NewBigModel --lr 0.00005 --max-epoch 2500 --lossf fflMix --train-batch-size 3 --use-dwt Wavelet" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

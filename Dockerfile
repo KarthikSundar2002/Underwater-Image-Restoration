@@ -9,6 +9,6 @@ COPY requirements.txt /tmp/requirements.txt
 
 RUN pip install -r /tmp/requirements.txt
 #COPY . .
-CMD ["python", "main.py","-a", "NewBigModel","--lr","0.00005","--max-epoch", "2500", "--lossf", "fflMix","--train-batch-size","1","--use-dwt", "Wavelet"]
+CMD ["python", "main.py","-a", "NewBigModel","--lr","0.00005","--max-epoch", "2500", "--lossf", "fflMix","--train-batch-size","2","--use-dwt", "Wavelet"]
 
 

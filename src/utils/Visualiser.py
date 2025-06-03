@@ -15,8 +15,9 @@ from src.Models import SpectralTransformer
 def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     # img = cv2.imread(fileToTest)
     # rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    rgb = Image.open(fileToTest)
-    transform = transforms.Compose([transforms.Resize((256, 256), InterpolationMode.BICUBIC), transforms.ToTensor(),
+    rgb = Image.open(fileToTest).convert("RGB")
+
+    transform = transforms.Compose([transforms.Resize((1024, 1024), InterpolationMode.BICUBIC), transforms.ToTensor(),
                                     ])
     #img_array = np.array(rgb)
     #input_tensor = torch.from_numpy(img_array)
@@ -26,7 +27,6 @@ def ProcessImageUsingModel(device, fileToTest, model, directory, saveName):
     input_tensor = transform(rgb)
     input_tensor = input_tensor.unsqueeze(0)
     input_tensor = input_tensor.to(device)
-
     result = model(input_tensor)
     result_cpu = result.detach().cpu()
     res = save_from_tensor(directory, saveName, result_cpu)
