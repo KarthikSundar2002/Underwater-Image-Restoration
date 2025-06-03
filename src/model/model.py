@@ -219,7 +219,6 @@ class MyModel(nn.Module):
                                         act_layer=nn.GELU, drop=dropout_rate, token_projection="linear", enc_out=True, freq_attn_win_ratio=16, use_dwt=use_dwt) 
         
         self.output_proj = OutputProjection(in_channels=embed_dim, out_channel=dd_in, kernel_size=3, stride=1, norm_layer=None, act_layer=None)
-        self.adaptive_pool_1 = nn.AdaptiveAvgPool2d(256*256*3)
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -234,8 +233,7 @@ class MyModel(nn.Module):
     def forward(self, x, mask=None):
         if mask is not None:
             x = x * mask
-        
-        # x = self.adaptive_pool_1(x)
+
         # Input - x: (B, C, H, W) - B, 3, 256, 256
         y = self.input_proj(x)
         # print(f"Input Projection shape: {y.shape}")
@@ -390,15 +388,13 @@ class MyBigModel(nn.Module):
         if mask is not None:
             x = x * mask
         # Input - x: (B, C, H, W) - B, 3, 256, 256
-        B,C,H,W = x.shape
-        # print(x.shape)
-        out_skip = x
-        x = self.adaptive_pool(x)
-        y = self.input_proj(x)
 
+        # print(x.shape)
+        Y = self.input_proj(x)
+        # print("input proj" + str(x.shape))
         # y - y: (B, L, C) - B, 256*256, 32
 
-        conv0 = self.encoder_0(y, mask=mask)  # conv0 - (B, L, C) - B, 256*256, 32
+        conv0 = self.encoder_0(Y, mask=mask)  # conv0 - (B, L, C) - B, 256*256, 32
         conv0 = self.encoder_0_1(conv0, mask=mask)
         pool0 = self.downsample_0(conv0)  # pool0 - (B, L/4, C*2) - B, 128*128, 64
         conv1 = self.encoder_1(pool0, mask=mask)  # conv1 - (B, L/4, C*2) - B, 128*128, 64
@@ -432,9 +428,6 @@ class MyBigModel(nn.Module):
 
         dec0 = self.decoder_0(up0, enc_out=conv0)
         dec0 = self.decoder_0_1(dec0)
-        b, l, c = dec0.shape
-        h = w = int(math.sqrt(l))
-        dec0 = dec0.transpose(1, 2).reshape(b, c, h, w).contiguous()
         # yh = math.sqrt(y.shape[1])
         # yw = math.sqrt(y.shape[1])
         # y = y.view(y.shape[0], y.shape[2], int(yh), int(yw))
@@ -442,24 +435,8 @@ class MyBigModel(nn.Module):
         # dec0 = torch.nn.ConstantPad2d((W-dec0.shape[-1],0,H-dec0.shape[-2],0),0)(dec0)
         # dec0 = torchvision.transforms.functional.resize((dec0),(H,W))
         out = self.output_proj(dec0)
-        
+        print(out.shape)
         out = out + x
-        out = torchvision.transforms.functional.resize((out),(H,W))
-        # print(out.shape)
-        out_c1 = self.conv_super_enc(out)
-        # print(out_c1.shape)
-        out_c2 = self.conv_super_enc1(out_c1)
-        # print(out_c2.shape)
-        out_c3 = self.conv_super_enc2(out_c2)
-        # print(out_c3.shape)
-        # dec_c3 = self.conv_super_dec3(out_c3)
-        dec_c2 = self.conv_super_dec2(out_c3)
-        # print(dec_c2.shape)
-        dec_c1 = self.conv_super_dec1(dec_c2+out_c2)#
-        # print(dec_c1.shape)
-        y = self.conv_super_dec(dec_c1 + out_c1)
-        # print(out.shape)
-        out = out + y
         return out
 
 class MyBigFRFNModel(nn.Module):

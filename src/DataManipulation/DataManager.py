@@ -70,7 +70,7 @@ class DataManager:
         outputDirectory = self.getManipulatedDir(directory)
 
         imageManipulator = im.ImageManipulator(directory, outputDirectory)
-        imageManipulator.resizeImages(1024,1024)
+        imageManipulator.resizeImages(256,256)
         imageManipulator.saveToDisk()
 
         print("Resized images in " + directory)
